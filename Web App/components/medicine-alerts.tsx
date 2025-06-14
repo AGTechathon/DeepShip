@@ -31,6 +31,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
   const [alerts, setAlerts] = useState<MedicineAlert[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [firebaseError, setFirebaseError] = useState<string | null>(null)
   const [newAlert, setNewAlert] = useState({
     name: "",
     time: "",
@@ -39,32 +40,88 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
 
   // Load alerts from Firebase
   useEffect(() => {
-    if (!user?.uid) return
+    if (!user?.uid) {
+      console.log("No user UID available")
+      setLoading(false)
+      return
+    }
 
+    if (!database) {
+      console.error("Firebase database not initialized")
+      toast.error("Database connection failed")
+      setLoading(false)
+      return
+    }
+
+    console.log("Loading alerts for user:", user.uid)
     const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
 
     const unsubscribe = onValue(alertsRef, (snapshot) => {
+      console.log("Firebase snapshot received:", snapshot.exists())
       const data = snapshot.val()
       if (data) {
+        console.log("Alerts data:", data)
         const alertsArray = Object.entries(data).map(([id, alert]: [string, any]) => ({
           id,
           ...alert,
         }))
         // Sort by creation time (newest first)
-        alertsArray.sort((a, b) => b.createdAt - a.createdAt)
+        alertsArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
         setAlerts(alertsArray)
       } else {
+        console.log("No alerts data found")
         setAlerts([])
       }
       setLoading(false)
     }, (error) => {
       console.error("Error loading alerts:", error)
-      toast.error("Failed to load medicine alerts")
+      setFirebaseError(error.message)
+      toast.error(`Failed to load medicine alerts: ${error.message}`)
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    // Set a timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.log("Loading timeout reached")
+      setLoading(false)
+    }, 10000)
+
+    return () => {
+      unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [user?.uid])
+
+  // Auto-update missed alerts
+  useEffect(() => {
+    const updateMissedAlerts = async () => {
+      if (!user?.uid || alerts.length === 0) return
+
+      const today = new Date().toISOString().split("T")[0]
+      const now = new Date()
+
+      for (const alert of alerts) {
+        if (alert.status === "upcoming" && alert.date === today) {
+          const [hours, minutes] = alert.time.split(':').map(Number)
+          const alertTime = new Date()
+          alertTime.setHours(hours, minutes, 0, 0)
+
+          // If alert time has passed by more than 30 minutes, mark as missed
+          if (now.getTime() - alertTime.getTime() > 30 * 60 * 1000) {
+            try {
+              const alertRef = ref(database, `users/${user.uid}/medicineAlerts/${alert.id}`)
+              await update(alertRef, { status: "missed" })
+            } catch (error) {
+              console.error("Error updating missed alert:", error)
+            }
+          }
+        }
+      }
+    }
+
+    const interval = setInterval(updateMissedAlerts, 60000) // Check every minute
+    return () => clearInterval(interval)
+  }, [alerts, user?.uid])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -92,7 +149,58 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
   }
 
+  const testFirebaseConnection = async () => {
+    try {
+      console.log("Testing Firebase connection...")
+      console.log("User:", user?.uid)
+      console.log("Database:", database)
+
+      if (!user?.uid) {
+        toast.error("No user authenticated")
+        return
+      }
+
+      const testRef = ref(database, `users/${user.uid}/test`)
+      await set(testRef, { timestamp: Date.now() })
+      toast.success("Firebase connection working!")
+    } catch (error) {
+      console.error("Firebase test failed:", error)
+      toast.error(`Firebase test failed: ${error}`)
+    }
+  }
+
+  const addSampleAlert = async () => {
+    try {
+      if (!user?.uid) {
+        toast.error("No user authenticated")
+        return
+      }
+
+      const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+      const newAlertRef = push(alertsRef)
+
+      const sampleAlert = {
+        name: "Sample Medicine",
+        time: "14:30",
+        dosage: "1 tablet",
+        status: "upcoming" as const,
+        date: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
+      }
+
+      await set(newAlertRef, sampleAlert)
+      toast.success("Sample alert added!")
+    } catch (error: any) {
+      console.error("Error adding sample alert:", error)
+      toast.error(`Failed to add sample alert: ${error.message}`)
+    }
+  }
+
   const handleAddAlert = async () => {
+    console.log("Add Alert button clicked!")
+    console.log("New Alert data:", newAlert)
+    console.log("User:", user?.uid)
+
     if (!newAlert.name || !newAlert.time || !newAlert.dosage) {
       toast.error("Please fill in all fields")
       return
@@ -104,6 +212,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
 
     try {
+      console.log("Attempting to save to Firebase...")
       const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
       const newAlertRef = push(alertsRef)
 
@@ -116,14 +225,18 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
         createdAt: Date.now(),
       }
 
+      console.log("Alert to save:", alert)
       await set(newAlertRef, alert)
+      console.log("Alert saved successfully!")
 
       setNewAlert({ name: "", time: "", dosage: "" })
       setIsAddDialogOpen(false)
       toast.success("Medicine alert added successfully!")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding alert:", error)
-      toast.error("Failed to add medicine alert")
+      console.error("Error code:", error.code)
+      console.error("Error message:", error.message)
+      toast.error(`Failed to add medicine alert: ${error.message || error}`)
     }
   }
 
@@ -146,16 +259,57 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
   }
 
-  const upcomingAlerts = alerts.filter((alert) => alert.status === "upcoming")
-  const takenAlerts = alerts.filter((alert) => alert.status === "taken")
-  const missedAlerts = alerts.filter((alert) => alert.status === "missed")
+  // Helper function to check if alert is for today
+  const isToday = (dateString: string) => {
+    const today = new Date().toISOString().split("T")[0]
+    return dateString === today
+  }
+
+  // Helper function to check if alert time has passed
+  const isTimePassed = (timeString: string) => {
+    const now = new Date()
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const alertTime = new Date()
+    alertTime.setHours(hours, minutes, 0, 0)
+    return now > alertTime
+  }
+
+  // Filter alerts with better logic
+  const todaysAlerts = alerts.filter(alert => isToday(alert.date))
+  const upcomingAlerts = todaysAlerts.filter(alert =>
+    alert.status === "upcoming" && !isTimePassed(alert.time)
+  )
+  const takenAlerts = todaysAlerts.filter(alert => alert.status === "taken")
+  const missedAlerts = todaysAlerts.filter(alert =>
+    alert.status === "upcoming" && isTimePassed(alert.time)
+  )
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex justify-center items-center py-12">
+        <div className="flex flex-col justify-center items-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <span className="ml-2 text-gray-600">Loading medicine alerts...</span>
+          <span className="ml-2 text-gray-600 mt-4">Loading medicine alerts...</span>
+          <p className="text-sm text-gray-500 mt-2">If this takes too long, please refresh the page</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (firebaseError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col justify-center items-center py-12">
+          <div className="text-red-500 text-center">
+            <h3 className="text-lg font-semibold mb-2">Firebase Connection Error</h3>
+            <p className="text-sm mb-4">{firebaseError}</p>
+            <p className="text-xs text-gray-500 mb-4">
+              This might be due to Firebase database rules. Please check your Firebase console.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -169,7 +323,14 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
           <h2 className="text-2xl font-bold">Medicine Alerts</h2>
           <p className="text-gray-600">Manage your medication schedule</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={testFirebaseConnection}>
+            Test Firebase
+          </Button>
+          <Button variant="outline" onClick={addSampleAlert}>
+            Add Sample
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
               <Plus className="h-4 w-4 mr-2" />
@@ -219,6 +380,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
