@@ -1,7 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import type { User } from "firebase/auth"
+import { ref, onValue } from "firebase/database"
+import { database } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -10,8 +13,24 @@ import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "luc
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 
+// Dynamically import the compact map component to avoid SSR issues
+const CompactLocationMap = dynamic(() => import("@/components/compact-location-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+    </div>
+  ),
+})
+
 interface DashboardProps {
   user: User
+}
+
+interface LocationData {
+  lat: number | null
+  lng: number | null
+  lastUpdated: string | null
 }
 
 const heartRateData = [
@@ -35,6 +54,11 @@ export default function Dashboard({ user }: DashboardProps) {
     minimum: 65,
     maximum: 95
   })
+  const [location, setLocation] = useState<LocationData>({
+    lat: 17.613409, // Default coordinates
+    lng: 75.891103,
+    lastUpdated: "6/14/2025, 5:55:59 PM",
+  })
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -43,6 +67,21 @@ export default function Dashboard({ user }: DashboardProps) {
 
     return () => clearInterval(timer)
   }, [])
+
+  // Load location data from Firebase
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const locationRef = ref(database, `users/${user.uid}/liveLocation`)
+    const unsubscribe = onValue(locationRef, (snapshot) => {
+      const data = snapshot.val()
+      if (data) {
+        setLocation(data)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user?.uid])
 
   // Realtime heart rate simulation
   useEffect(() => {
@@ -430,15 +469,29 @@ export default function Dashboard({ user }: DashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Location tracking disabled</p>
-                  <Button variant="link" className="text-blue-600 text-sm">
-                    Enable tracking
-                  </Button>
+              {location.lat && location.lng ? (
+                <div className="space-y-2">
+                  <div className="h-32 rounded-lg overflow-hidden">
+                    <CompactLocationMap
+                      latitude={location.lat}
+                      longitude={location.lng}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 text-center">
+                    Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">Location tracking disabled</p>
+                    <Button variant="link" className="text-blue-600 text-sm">
+                      Enable tracking
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

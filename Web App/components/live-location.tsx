@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import type { User } from "firebase/auth"
 import { ref, set, onValue } from "firebase/database"
 import { database } from "@/lib/firebase"
@@ -8,6 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Play, Square, Navigation, Clock, Satellite } from "lucide-react"
+
+// Dynamically import the map component to avoid SSR issues
+const LocationMap = dynamic(() => import("@/components/location-map"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+        <p className="text-gray-600">Loading map...</p>
+      </div>
+    </div>
+  ),
+})
 
 interface LiveLocationProps {
   user: User
@@ -22,9 +36,9 @@ interface LocationData {
 export default function LiveLocation({ user }: LiveLocationProps) {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState<LocationData>({
-    lat: null,
-    lng: null,
-    lastUpdated: null,
+    lat: 17.613409, // Default coordinates
+    lng: 75.891103,
+    lastUpdated: "6/14/2025, 5:55:59 PM",
   })
   const [watchId, setWatchId] = useState<number | null>(null)
 
@@ -198,19 +212,14 @@ export default function LiveLocation({ user }: LiveLocationProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-96 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center relative overflow-hidden">
-            {location.lat && location.lng ? (
-              <div className="text-center">
-                <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mb-4 mx-auto animate-pulse">
-                  <MapPin className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Location Tracked</h3>
-                <p className="text-gray-600 mb-2">
-                  Lat: {formatCoordinate(location.lat)}, Lng: {formatCoordinate(location.lng)}
-                </p>
-                <p className="text-sm text-gray-500">Updated: {formatLastUpdated(location.lastUpdated)}</p>
-              </div>
-            ) : (
+          {location.lat && location.lng ? (
+            <LocationMap
+              latitude={location.lat}
+              longitude={location.lng}
+              lastUpdated={location.lastUpdated}
+            />
+          ) : (
+            <div className="h-96 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
               <div className="text-center">
                 <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">No Location Data</h3>
@@ -220,13 +229,8 @@ export default function LiveLocation({ user }: LiveLocationProps) {
                   Start Location Tracking
                 </Button>
               </div>
-            )}
-
-            {/* Decorative elements */}
-            <div className="absolute top-4 left-4 w-8 h-8 bg-white/20 rounded-full"></div>
-            <div className="absolute bottom-4 right-4 w-12 h-12 bg-white/10 rounded-full"></div>
-            <div className="absolute top-1/2 right-8 w-6 h-6 bg-white/15 rounded-full"></div>
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
