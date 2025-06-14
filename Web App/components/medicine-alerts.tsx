@@ -321,15 +321,37 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     return now > alertTime
   }
 
-  // Filter alerts with better logic
+  // Helper function to get the actual status of an alert (considering time passed)
+  const getActualStatus = (alert: MedicineAlert) => {
+    // If already taken or explicitly missed, return as is
+    if (alert.status === "taken" || alert.status === "missed") {
+      return alert.status
+    }
+
+    // If it's upcoming but for today and time has passed by more than 30 minutes, it's missed
+    if (alert.status === "upcoming" && isToday(alert.date) && isTimePassed(alert.time)) {
+      const now = new Date()
+      const [hours, minutes] = alert.time.split(':').map(Number)
+      const alertTime = new Date()
+      alertTime.setHours(hours, minutes, 0, 0)
+
+      // If more than 30 minutes have passed, consider it missed
+      if (now.getTime() - alertTime.getTime() > 30 * 60 * 1000) {
+        return "missed"
+      }
+    }
+
+    return alert.status
+  }
+
+  // Filter alerts with better logic using actual status
   const todaysAlerts = alerts.filter(alert => isToday(alert.date))
-  const upcomingAlerts = todaysAlerts.filter(alert =>
-    alert.status === "upcoming" && !isTimePassed(alert.time)
-  )
-  const takenAlerts = todaysAlerts.filter(alert => alert.status === "taken")
-  const missedAlerts = todaysAlerts.filter(alert =>
-    alert.status === "missed" || (alert.status === "upcoming" && isTimePassed(alert.time))
-  )
+  const upcomingAlerts = todaysAlerts.filter(alert => {
+    const actualStatus = getActualStatus(alert)
+    return actualStatus === "upcoming" && !isTimePassed(alert.time)
+  })
+  const takenAlerts = todaysAlerts.filter(alert => getActualStatus(alert) === "taken")
+  const missedAlerts = todaysAlerts.filter(alert => getActualStatus(alert) === "missed")
 
   // Get all alerts for history display (sorted by creation time)
   const allAlertsHistory = [...alerts].sort((a, b) => {
@@ -392,12 +414,6 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
           <p className="text-gray-600">Manage your medication schedule</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={testFirestoreConnection}>
-            Test Firestore
-          </Button>
-          <Button variant="outline" onClick={addSampleAlert}>
-            Add Sample
-          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
@@ -578,10 +594,15 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={getStatusColor(alert.status)}>
-                    {getStatusIcon(alert.status)}
-                    <span className="ml-1 capitalize">{alert.status}</span>
-                  </Badge>
+                  {(() => {
+                    const actualStatus = getActualStatus(alert)
+                    return (
+                      <Badge className={getStatusColor(actualStatus)}>
+                        {getStatusIcon(actualStatus)}
+                        <span className="ml-1 capitalize">{actualStatus}</span>
+                      </Badge>
+                    )
+                  })()}
                   {alert.status === "upcoming" && isToday(alert.date) && !isTimePassed(alert.time) && (
                     <Button size="sm" onClick={() => markAsTaken(alert.id)}>
                       Mark as Taken
