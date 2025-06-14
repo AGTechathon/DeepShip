@@ -139,6 +139,12 @@ class MainActivity : ComponentActivity() {
                         }
                         true
                     }
+                    command.contains("currency") || command.contains("money") || command.contains("rupee") -> {
+                        speak("Opening currency reader") {
+                            startActivity(Intent(this@MainActivity, com.example.vocaleyesnew.currency.CurrencyDetectionActivity::class.java))
+                        }
+                        true
+                    }
                     command.contains("assistant") || command.contains("chat") -> {
                         speak("Opening AI Assistant") {
                             startActivity(Intent(this@MainActivity, ChatActivity::class.java))
@@ -146,7 +152,7 @@ class MainActivity : ComponentActivity() {
                         true
                     }
                     command.contains("help") || command.contains("options") -> {
-                        speak("Available commands are: object detection, navigation, face recognition, book reading, and assistant. Say go back to return to previous screen, or go home to return to main menu.")
+                        speak("Available commands are: object detection, navigation, face recognition, book reading, currency reader, and assistant. Say go back to return to previous screen, or go home to return to main menu.")
                         true
                     }
                     else -> false // Command not handled
@@ -296,6 +302,12 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
             FeatureButton("Book Reading") {
                 voiceRecognitionManager.speak("Opening book reading") {
                     context.startActivity(Intent(context, TextExtractionActivity::class.java))
+                }
+            }
+
+            FeatureButton("Currency Reader") {
+                voiceRecognitionManager.speak("Opening currency reader") {
+                    context.startActivity(Intent(context, com.example.vocaleyesnew.currency.CurrencyDetectionActivity::class.java))
                 }
             }
 

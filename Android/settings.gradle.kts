@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "VocalEyesNew"
 include(":app")
- 

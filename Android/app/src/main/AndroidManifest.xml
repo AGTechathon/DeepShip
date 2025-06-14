@@ -77,6 +77,12 @@
             android:theme="@style/Theme.VocalEyesNew"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".currency.CurrencyDetectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.VocalEyesNew"
+            android:screenOrientation="portrait" />
+
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="lang" />
