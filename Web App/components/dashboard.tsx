@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
+import MedicinesSchedule from "@/components/medicines-schedule"
 
 // Dynamically import the compact map component to avoid SSR issues
 const CompactLocationMap = dynamic(() => import("@/components/compact-location-map"), {
@@ -275,126 +276,10 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
             </Card>
           </div>
 
-          {/* Schedule Section */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Checkup Schedule</CardTitle>
-              <Button variant="link" className="text-purple-600">
-                Show More
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {/* Calendar */}
-              <div className="grid grid-cols-7 gap-2 mb-6">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-gray-500 p-2">
-                    {day}
-                  </div>
-                ))}
-                {Array.from({ length: 7 }, (_, i) => (
-                  <div key={i} className="text-center p-2">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                        i === 5 ? "bg-purple-600 text-white" : "hover:bg-gray-100"
-                      }`}
-                    >
-                      {15 + i}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Medicines Schedule Section */}
+          <MedicinesSchedule user={user} />
 
-              {/* Appointments */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-cyan-50 rounded-lg">
-                  <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
-                    <span className="text-cyan-600 font-semibold">DC</span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">Dental Checkup</h4>
-                    <p className="text-sm text-gray-600">Dr. John Cooper</p>
-                    <p className="text-xs text-gray-500">All Departments are fine, but you still need...</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-lg">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                    <span className="text-purple-600 font-semibold">CS</span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">Cancer Screening</h4>
-                    <p className="text-sm text-gray-600">Dr. Samson Wisemore</p>
-                    <p className="text-xs text-gray-500">All Departments are fine, but you still need...</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Medical History Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Medical Checkup History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 text-sm font-medium text-gray-600">Category</th>
-                      <th className="text-left p-3 text-sm font-medium text-gray-600">Date</th>
-                      <th className="text-left p-3 text-sm font-medium text-gray-600">Duration</th>
-                      <th className="text-left p-3 text-sm font-medium text-gray-600">Calory Burned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      {
-                        category: "Running",
-                        date: "20 April, 2024",
-                        duration: "030 Minutes",
-                        calories: "140 Calory Burned",
-                        color: "purple",
-                      },
-                      {
-                        category: "Cycling",
-                        date: "18 April, 2024",
-                        duration: "030 Minutes",
-                        calories: "140 Calory Burned",
-                        color: "orange",
-                      },
-                      {
-                        category: "Swimming",
-                        date: "16 April, 2024",
-                        duration: "030 Minutes",
-                        calories: "140 Calory Burned",
-                        color: "blue",
-                      },
-                      {
-                        category: "Yoga",
-                        date: "10 April, 2024",
-                        duration: "030 Minutes",
-                        calories: "140 Calory Burned",
-                        color: "green",
-                      },
-                    ].map((item, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full bg-${item.color}-500`}></div>
-                            {item.category}
-                          </div>
-                        </td>
-                        <td className="p-3 text-gray-600">{item.date}</td>
-                        <td className="p-3 text-gray-600">{item.duration}</td>
-                        <td className="p-3 text-gray-600">{item.calories}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column - Heart Statistics & 3D Scene */}
