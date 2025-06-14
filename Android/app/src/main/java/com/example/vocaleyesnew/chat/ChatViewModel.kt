@@ -25,7 +25,7 @@ class ChatViewModel : ViewModel() {
     private var generativeModel: GenerativeModel? = null
 
     companion object {
-        private const val API_KEY = "AIzaSyD6BCEYLxOMk8XdlM6AsWg6_IhUjsZFJds"
+        private const val API_KEY = "AIzaSyDpuTNjPEe3NX4qrpqoriscoCFLW7Bll8k"
         private const val PROJECT_NUMBER = "270025439616"
         private const val MODEL_NAME = "gemini-2.0-flash"
         private const val TAG = "ChatViewModel"

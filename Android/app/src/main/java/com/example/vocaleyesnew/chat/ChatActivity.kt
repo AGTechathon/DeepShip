@@ -31,110 +31,71 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
+import com.example.vocaleyesnew.VoiceRecognitionManager
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 class ChatActivity : ComponentActivity() {
     private val viewModel: ChatViewModel by viewModels()
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var isListening = false
-
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            startListening()
-        }
-    }
+    private lateinit var voiceRecognitionManager: VoiceRecognitionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel.initialize(this)
-        setupSpeechRecognizer()
-        checkPermissionAndStartVoiceRecognition()
+        voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
+        voiceRecognitionManager.setCurrentActivity(this)
+        setupVoiceCommands()
 
         setContent {
             VocalEyesNewTheme {
+                val isListening by voiceRecognitionManager.isListeningState.collectAsState()
                 ChatScreen(
                     viewModel = viewModel,
                     activity = this,
                     isListening = isListening,
-                    onStartListening = { startListening() },
-                    onStopListening = { stopListening() }
+                    voiceRecognitionManager = voiceRecognitionManager
                 )
             }
         }
     }
 
-    private fun setupSpeechRecognizer() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Log.e("ChatActivity", "Speech recognition is not available on this device")
-            return
-        }
+    override fun onResume() {
+        super.onResume()
+        voiceRecognitionManager.setCurrentActivity(this)
+        setupVoiceCommands()
+    }
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                isListening = true
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    val text = matches[0]
-                    viewModel.sendMessage(text)
+    private fun setupVoiceCommands() {
+        voiceRecognitionManager.setActivitySpecificListener { command ->
+            when {
+                command.contains("send message") || command.contains("send") -> {
+                    voiceRecognitionManager.speak("Please speak your message")
+                    true
                 }
-                isListening = false
-            }
-
-            override fun onError(error: Int) {
-                isListening = false
-            }
-
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-    }
-
-    private fun checkPermissionAndStartVoiceRecognition() {
-        when {
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                startListening()
-            }
-            else -> {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                command.contains("clear chat") || command.contains("clear") -> {
+                    voiceRecognitionManager.speak("Clearing chat history")
+                    // TODO: Implement clear chat functionality
+                    true
+                }
+                command.contains("repeat last") || command.contains("repeat") -> {
+                    val messages = viewModel.messages.value
+                    if (messages.isNotEmpty()) {
+                        val lastMessage = messages.last()
+                        voiceRecognitionManager.speak(lastMessage.content)
+                    } else {
+                        voiceRecognitionManager.speak("No messages to repeat")
+                    }
+                    true
+                }
+                else -> {
+                    // Treat any unrecognized command as a message to send
+                    viewModel.sendMessage(command)
+                    true
+                }
             }
         }
-    }
 
-    private fun startListening() {
-        if (isListening) return // Avoid starting multiple times
-        
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-        }
-        speechRecognizer?.startListening(intent)
-    }
-
-    private fun stopListening() {
-        speechRecognizer?.stopListening()
-        isListening = false
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        speechRecognizer?.destroy()
-        speechRecognizer = null
+        voiceRecognitionManager.speak("AI Assistant ready. Speak your message or say help for commands.")
     }
 }
 
@@ -144,8 +105,7 @@ fun ChatScreen(
     viewModel: ChatViewModel,
     activity: ComponentActivity,
     isListening: Boolean,
-    onStartListening: () -> Unit,
-    onStopListening: () -> Unit
+    voiceRecognitionManager: VoiceRecognitionManager
 ) {
     val messages by viewModel.messages.collectAsState()
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -158,22 +118,16 @@ fun ChatScreen(
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        if (!isListening) {
-                            onStartListening()
-                        }
-                    }
-                )
-            },
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("AI Assistant (Double-tap to speak)") },
+                title = { Text("AI Assistant (Always listening)") },
                 navigationIcon = {
-                    IconButton(onClick = { activity.finish() }) {
+                    IconButton(onClick = {
+                        voiceRecognitionManager.speak("Going back") {
+                            activity.finish()
+                        }
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -217,19 +171,15 @@ fun ChatScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { if (isListening) onStopListening() else onStartListening() },
-                        modifier = Modifier.size(56.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
-                            contentDescription = if (isListening) "Stop Listening" else "Start Listening",
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isListening) Icons.Default.Mic else Icons.Default.Stop,
+                        contentDescription = if (isListening) "Listening" else "Not Listening",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isListening) "Listening..." else "Double-tap screen to speak",
+                        text = if (isListening) "Listening... Speak your message" else "Voice recognition paused",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

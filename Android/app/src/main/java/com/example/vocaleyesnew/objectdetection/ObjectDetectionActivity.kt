@@ -50,6 +50,7 @@ import com.example.vocaleyesnew.objectdetection.Constants.LABELS_PATH
 import com.example.vocaleyesnew.objectdetection.Constants.MODEL_PATH
 import com.example.vocaleyesnew.ui.theme.BoundingBoxColor
 import com.example.vocaleyesnew.ui.theme.YOLOv8Theme
+import com.example.vocaleyesnew.VoiceRecognitionManager
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -60,10 +61,11 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
     private lateinit var detector: Detector
     private lateinit var cameraExecutor: ExecutorService
     private var isDetectorInitialized = false
+    private lateinit var voiceRecognitionManager: VoiceRecognitionManager
 
     // Add error handling state
     private var errorMessage by mutableStateOf<String?>(null)
-    
+
     // TTS related variables
     private lateinit var textToSpeech: TextToSpeech
     private val detectedObjects = mutableMapOf<String, Long>()
@@ -101,6 +103,9 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
 
         textToSpeech = TextToSpeech(this, this)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
+        voiceRecognitionManager.setCurrentActivity(this)
+        setupVoiceCommands()
 
         try {
             detector = Detector(
@@ -223,6 +228,50 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        voiceRecognitionManager.setCurrentActivity(this)
+        setupVoiceCommands()
+    }
+
+    private fun setupVoiceCommands() {
+        voiceRecognitionManager.setActivitySpecificListener { command ->
+            when {
+                command.contains("pause") || command.contains("stop") -> {
+                    if (!isDetectionPaused) {
+                        toggleDetection()
+                    }
+                    true
+                }
+                command.contains("play") || command.contains("start") || command.contains("resume") -> {
+                    if (isDetectionPaused) {
+                        toggleDetection()
+                    }
+                    true
+                }
+                command.contains("what do you see") || command.contains("describe") -> {
+                    announceCurrentObjects()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun announceCurrentObjects() {
+        if (boundingBoxes.isNotEmpty()) {
+            val objectsToAnnounce = boundingBoxes.map { it.clsName }.distinct()
+            val announcement = if (objectsToAnnounce.size == 1) {
+                "I can see ${objectsToAnnounce.first()}"
+            } else {
+                "I can see ${objectsToAnnounce.dropLast(1).joinToString(", ")} and ${objectsToAnnounce.last()}"
+            }
+            voiceRecognitionManager.speak(announcement)
+        } else {
+            voiceRecognitionManager.speak("I don't see any objects right now")
         }
     }
 
@@ -410,11 +459,11 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
     private fun toggleDetection() {
         isDetectionPaused = !isDetectionPaused
         if (isDetectionPaused) {
-            speak("Detection paused")
+            voiceRecognitionManager.speak("Detection paused")
             // Clear any pending announcements
             lastAnnouncementTime = System.currentTimeMillis()
         } else {
-            speak("Detection resumed")
+            voiceRecognitionManager.speak("Detection resumed")
         }
     }
 
@@ -469,7 +518,7 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Log.e("TTS", "Language not supported")
             } else {
-                speak("Object detection ready. Tap screen to pause or resume detection.")
+                voiceRecognitionManager.speak("Object detection ready. Say pause to pause detection, play to resume, or what do you see to get current objects. Say go back to return.")
             }
         } else {
             Log.e("TTS", "TTS Initialization failed")

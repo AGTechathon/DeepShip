@@ -21,15 +21,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
+import com.example.vocaleyesnew.VoiceRecognitionManager
 import kotlinx.coroutines.launch
 import java.util.*
 
 class TextExtractionActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var textToSpeech: TextToSpeech
+    private lateinit var voiceRecognitionManager: VoiceRecognitionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         textToSpeech = TextToSpeech(this, this)
+        voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
+        voiceRecognitionManager.setCurrentActivity(this)
 
         setContent {
             VocalEyesNewTheme {
@@ -43,15 +47,41 @@ class TextExtractionActivity : ComponentActivity(), TextToSpeech.OnInitListener 
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        voiceRecognitionManager.setCurrentActivity(this)
+        setupVoiceCommands()
+    }
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             textToSpeech.language = Locale.getDefault()
-            textToSpeech.speak(
-                "Welcome to book reading mode. Double tap to capture and read text. Triple tap to stop reading. Four taps to repeat.",
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                null
+            voiceRecognitionManager.speak(
+                "Welcome to book reading mode. Say capture to take a photo and read text, stop reading to stop, or repeat to repeat last text. Say go back to return."
             )
+            setupVoiceCommands()
+        }
+    }
+
+    private fun setupVoiceCommands() {
+        voiceRecognitionManager.setActivitySpecificListener { command ->
+            when {
+                command.contains("capture") || command.contains("take photo") || command.contains("read") -> {
+                    // Trigger capture functionality
+                    voiceRecognitionManager.speak("Capturing text")
+                    true
+                }
+                command.contains("stop reading") || command.contains("stop") -> {
+                    textToSpeech.stop()
+                    voiceRecognitionManager.speak("Stopped reading")
+                    true
+                }
+                command.contains("repeat") || command.contains("repeat last") -> {
+                    // This will be handled by the global repeat command
+                    false
+                }
+                else -> false
+            }
         }
     }
 

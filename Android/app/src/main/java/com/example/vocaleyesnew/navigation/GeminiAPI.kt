@@ -12,7 +12,7 @@ import java.io.IOException
 
 val generativeModel = GenerativeModel(
     modelName = "gemini-2.0-flash",
-    apiKey = "AIzaSyD6BCEYLxOMk8XdlM6AsWg6_IhUjsZFJds"
+    apiKey = "AIzaSyDpuTNjPEe3NX4qrpqoriscoCFLW7Bll8k"
 )
 
 suspend fun sendFrameToGeminiAI(bitmap: Bitmap, onPartialResult: (String) -> Unit, onError: (String) -> Unit) {

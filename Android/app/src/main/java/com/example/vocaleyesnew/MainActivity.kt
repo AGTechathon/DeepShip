@@ -4,10 +4,14 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +40,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        voiceRecognitionManager = VoiceRecognitionManager(this)
+        voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
+        voiceRecognitionManager.setCurrentActivity(this)
         checkPermissionAndStartVoiceRecognition()
 
         setContent {
@@ -44,6 +49,12 @@ class MainActivity : ComponentActivity() {
                 HomeScreen(voiceRecognitionManager)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        voiceRecognitionManager.setCurrentActivity(this)
+        voiceRecognitionManager.enablePersistentListening()
     }
 
     private fun checkPermissionAndStartVoiceRecognition() {
@@ -62,44 +73,55 @@ class MainActivity : ComponentActivity() {
 
     private fun startVoiceRecognition() {
         voiceRecognitionManager.apply {
-            setCommandListener { command ->
+            // Set up global command listener for MainActivity
+            setGlobalCommandListener { command ->
                 when {
                     command.contains("object") || command.contains("detection") -> {
                         speak("Opening object detection") {
                             startActivity(Intent(this@MainActivity, ObjectDetectionActivity::class.java))
                         }
+                        true
                     }
                     command.contains("navigation") -> {
                         speak("Opening navigation") {
                             startActivity(Intent(this@MainActivity, NavigationActivity::class.java))
                         }
+                        true
                     }
                     command.contains("face") || command.contains("recognition") -> {
                         speak("Opening face recognition")
                         // TODO: Launch face recognition activity
+                        true
                     }
                     command.contains("book") || command.contains("reading") -> {
                         speak("Opening book reading") {
                             startActivity(Intent(this@MainActivity, TextExtractionActivity::class.java))
                         }
+                        true
                     }
                     command.contains("assistant") || command.contains("chat") -> {
                         speak("Opening AI Assistant") {
                             startActivity(Intent(this@MainActivity, ChatActivity::class.java))
                         }
+                        true
                     }
                     command.contains("help") || command.contains("options") -> {
-                        speak("Available commands are: object detection, navigation, face recognition, book reading, and assistant. What would you like to do?")
+                        speak("Available commands are: object detection, navigation, face recognition, book reading, and assistant. Say go back to return to previous screen, or go home to return to main menu.")
+                        true
                     }
+                    else -> false // Command not handled
                 }
             }
-            startListening()
+            enablePersistentListening()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        voiceRecognitionManager.cleanup()
+        // Only cleanup if this is the last activity
+        if (isFinishing) {
+            voiceRecognitionManager.cleanup()
+        }
     }
 }
 
@@ -107,19 +129,62 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager) {
     val scope = rememberCoroutineScope()
     var isFirstLaunch by remember { mutableStateOf(true) }
+    val isListening by voiceRecognitionManager.isListeningState.collectAsState()
 
     LaunchedEffect(isFirstLaunch) {
         if (isFirstLaunch) {
-            delay(1000) // Wait for TTS to initialize
+            delay(1500) // Wait for TTS and voice recognition to initialize
             voiceRecognitionManager.speak(
-                "Welcome to VocalEyes. You can say: object detection, navigation, face recognition, book reading, or assistant. Say help for options. What would you like to do?",
+                "Welcome to VocalEyes. Voice recognition is always active. You can say: object detection, navigation, face recognition, book reading, or assistant. Say help for options. What would you like to do?",
             )
             isFirstLaunch = false
         }
     }
 
+    // Ensure voice recognition stays active with monitoring
+    LaunchedEffect(Unit) {
+        voiceRecognitionManager.enablePersistentListening()
+
+        // Monitor voice recognition state and force restart if needed
+        while (true) {
+            delay(3000) // Check every 3 seconds
+            if (!voiceRecognitionManager.isCurrentlyListening()) {
+                Log.d("MainActivity", "Voice recognition not active, forcing restart")
+                voiceRecognitionManager.enablePersistentListening()
+            }
+        }
+    }
+
     Scaffold(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            // Add a simple status bar showing voice recognition state
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = if (isListening) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                tonalElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicOff,
+                        contentDescription = if (isListening) "Listening" else "Not Listening",
+                        tint = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isListening) "Voice Recognition Active" else "Voice Recognition Inactive",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
