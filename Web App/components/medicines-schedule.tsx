@@ -117,42 +117,93 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     return () => unsubscribe()
   }, [user?.uid])
 
-  // Generate daily medicines for the current week
+  // Load daily medicine statuses from Firestore
   useEffect(() => {
-    if (schedules.length === 0) {
-      setDailyMedicines([])
-      return
-    }
+    if (!user?.uid) return
 
-    const today = new Date()
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
+    const dailyMedicinesQuery = query(
+      collection(firestore, "VocalEyes"),
+      where("userId", "==", user.uid),
+      where("type", "==", "daily_medicine")
+    )
 
-    const weeklyMedicines: DailyMedicine[] = []
+    const unsubscribe = onSnapshot(dailyMedicinesQuery, (snapshot) => {
+      const dailyMedicinesMap = new Map()
 
-    for (let i = 0; i < 7; i++) {
-      const currentDate = new Date(startOfWeek)
-      currentDate.setDate(startOfWeek.getDate() + i)
-      const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-      const dateString = currentDate.toISOString().split('T')[0]
-
-      schedules.forEach(schedule => {
-        if (schedule.status === "active" && schedule.days.includes(dayName)) {
-          weeklyMedicines.push({
-            id: `${schedule.id}-${dateString}`,
-            scheduleId: schedule.id,
-            name: schedule.name,
-            time: schedule.time,
-            dosage: schedule.dosage,
-            date: dateString,
-            status: "upcoming" // Will be updated based on actual data
-          })
-        }
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        dailyMedicinesMap.set(`${data.scheduleId}-${data.date}`, {
+          id: doc.id,
+          status: data.status,
+          takenAt: data.takenAt
+        })
       })
-    }
 
-    setDailyMedicines(weeklyMedicines)
-  }, [schedules])
+      // Generate daily medicines for the current week
+      if (schedules.length === 0) {
+        setDailyMedicines([])
+        return
+      }
+
+      const today = new Date()
+      const startOfWeek = new Date(today)
+      startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
+
+      const weeklyMedicines: DailyMedicine[] = []
+
+      for (let i = 0; i < 7; i++) {
+        const currentDate = new Date(startOfWeek)
+        currentDate.setDate(startOfWeek.getDate() + i)
+        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+        const dateString = currentDate.toISOString().split('T')[0]
+
+        schedules.forEach(schedule => {
+          if (schedule.status === "active" && schedule.days.includes(dayName)) {
+            const dailyMedicineKey = `${schedule.id}-${dateString}`
+            const existingDaily = dailyMedicinesMap.get(dailyMedicineKey)
+
+            // Determine status based on time and existing data
+            let status: "taken" | "missed" | "upcoming" = "upcoming"
+            let takenAt: Timestamp | undefined = undefined
+
+            if (existingDaily) {
+              status = existingDaily.status
+              takenAt = existingDaily.takenAt
+            } else {
+              // Check if time has passed for today's medicines
+              const now = new Date()
+              const isToday = dateString === now.toISOString().split('T')[0]
+
+              if (isToday) {
+                const [hours, minutes] = schedule.time.split(':').map(Number)
+                const medicineTime = new Date()
+                medicineTime.setHours(hours, minutes, 0, 0)
+
+                if (now > medicineTime) {
+                  status = "missed"
+                }
+              }
+            }
+
+            weeklyMedicines.push({
+              id: existingDaily?.id || `${schedule.id}-${dateString}`,
+              scheduleId: schedule.id,
+              name: schedule.name,
+              time: schedule.time,
+              dosage: schedule.dosage,
+              date: dateString,
+              status: status,
+              takenAt: takenAt
+            })
+          }
+        })
+      }
+
+      setDailyMedicines(weeklyMedicines)
+    })
+
+    return () => unsubscribe()
+  }, [schedules, user?.uid])
 
   const handleAddSchedule = async () => {
     if (!newSchedule.name || !newSchedule.time || !newSchedule.dosage || newSchedule.days.length === 0) {
@@ -247,6 +298,68 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         ? prev.days.filter(d => d !== day)
         : [...prev.days, day]
     }))
+  }
+
+  const markMedicineAsTaken = async (medicine: DailyMedicine) => {
+    if (!user?.uid) {
+      toast.error("User not authenticated")
+      return
+    }
+
+    try {
+      // Check if daily medicine record exists
+      if (medicine.id.includes('-') && !medicine.id.startsWith('daily_')) {
+        // Create new daily medicine record
+        const dailyMedicine = {
+          userId: user.uid,
+          type: "daily_medicine",
+          scheduleId: medicine.scheduleId,
+          date: medicine.date,
+          status: "taken",
+          takenAt: Timestamp.now()
+        }
+
+        await addDoc(collection(firestore, "VocalEyes"), dailyMedicine)
+      } else {
+        // Update existing daily medicine record
+        const medicineRef = doc(firestore, "VocalEyes", medicine.id)
+        await updateDoc(medicineRef, {
+          status: "taken",
+          takenAt: Timestamp.now()
+        })
+      }
+
+      toast.success("Marked as taken!")
+    } catch (error: any) {
+      console.error("Error updating medicine status:", error)
+      toast.error(`Failed to update medicine status: ${error.message}`)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "taken":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "upcoming":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "missed":
+        return "bg-red-100 text-red-800 border-red-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "taken":
+        return <Check className="h-3 w-3" />
+      case "upcoming":
+        return <Clock className="h-3 w-3" />
+      case "missed":
+        return <X className="h-3 w-3" />
+      default:
+        return <Bell className="h-3 w-3" />
+    }
   }
 
   const getWeekDates = () => {
@@ -365,6 +478,35 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         </Dialog>
       </CardHeader>
       <CardContent>
+        {/* Today's Summary */}
+        {(() => {
+          const today = new Date().toISOString().split('T')[0]
+          const todaysMedicines = dailyMedicines.filter(med => med.date === today)
+          const upcomingCount = todaysMedicines.filter(med => med.status === "upcoming").length
+          const takenCount = todaysMedicines.filter(med => med.status === "taken").length
+          const missedCount = todaysMedicines.filter(med => med.status === "missed").length
+
+          if (todaysMedicines.length > 0) {
+            return (
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{upcomingCount}</div>
+                  <div className="text-sm text-blue-600">Upcoming</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{takenCount}</div>
+                  <div className="text-sm text-green-600">Taken</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">{missedCount}</div>
+                  <div className="text-sm text-red-600">Missed</div>
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
+
         {/* Weekly Calendar View */}
         <div className="space-y-4">
           {/* Days Header */}
@@ -386,15 +528,32 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
             {getWeekDates().map((day, index) => {
               const dayMedicines = getMedicinesForDay(day.dayName, day.date.toISOString().split('T')[0])
               return (
-                <div key={index} className="space-y-1 min-h-[100px]">
+                <div key={index} className="space-y-1 min-h-[120px]">
                   {dayMedicines.map((medicine) => (
                     <div
                       key={medicine.id}
-                      className="p-2 bg-blue-50 border border-blue-200 rounded text-xs"
+                      className={`p-2 border rounded text-xs relative ${getStatusColor(medicine.status)}`}
                     >
-                      <div className="font-medium text-blue-900 truncate">{medicine.name}</div>
-                      <div className="text-blue-700">{medicine.time}</div>
-                      <div className="text-blue-600 text-xs">{medicine.dosage}</div>
+                      <div className="font-medium truncate">{medicine.name}</div>
+                      <div className="text-xs">{medicine.time}</div>
+                      <div className="text-xs">{medicine.dosage}</div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center gap-1">
+                          {getStatusIcon(medicine.status)}
+                          <span className="text-xs capitalize">{medicine.status}</span>
+                        </div>
+                        {medicine.status === "upcoming" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-4 w-4 p-0 hover:bg-green-200"
+                            onClick={() => markMedicineAsTaken(medicine)}
+                            title="Mark as taken"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
