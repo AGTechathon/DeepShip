@@ -54,7 +54,7 @@ export default function ThreeScene() {
     })
 
     const heartMesh = new THREE.Mesh(heartGeometry, heartMaterial)
-    heartMesh.scale.set(0.8, 0.8, 0.8)
+    heartMesh.scale.set(0.8, -0.8, 0.8) // Flip vertically by making Y scale negative
     heartGroup.add(heartMesh)
 
     // Add pulsing effect with additional geometry
@@ -65,7 +65,7 @@ export default function ThreeScene() {
       opacity: 0.3,
     })
     const pulseMesh = new THREE.Mesh(pulseGeometry, pulseMaterial)
-    pulseMesh.scale.set(1.1, 1.1, 1.1)
+    pulseMesh.scale.set(1.1, -1.1, 1.1) // Flip vertically by making Y scale negative
     heartGroup.add(pulseMesh)
 
     scene.add(heartGroup)
@@ -102,7 +102,7 @@ export default function ThreeScene() {
         const beat = Math.sin(time * heartbeatFreq * Math.PI * 2)
         const doubleBeat = Math.sin(time * heartbeatFreq * Math.PI * 4) * 0.3
         const scale = 1 + (beat + doubleBeat) * 0.08
-        heartRef.current.scale.set(scale, scale, scale)
+        heartRef.current.scale.set(scale, -scale, scale) // Keep Y scale negative for vertical flip
       }
 
       // Update pulse mesh with synchronized animation
@@ -110,7 +110,7 @@ export default function ThreeScene() {
         const heartbeatFreq = 1.2
         const pulseBeat = Math.sin(time * heartbeatFreq * Math.PI * 2)
         const pulseScale = 1.1 + pulseBeat * 0.15
-        heartGroup.children[1].scale.set(pulseScale, pulseScale, pulseScale)
+        heartGroup.children[1].scale.set(pulseScale, -pulseScale, pulseScale) // Keep Y scale negative for vertical flip
 
         // Fade in/out with heartbeat
         const opacity = 0.2 + Math.abs(pulseBeat) * 0.3

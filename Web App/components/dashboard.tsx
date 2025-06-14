@@ -326,10 +326,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                   </div>
                 )}
               </div>
-              {/* 3D Heart Visualization */}
-              <div className="h-48 mb-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-lg overflow-hidden">
-                <ThreeScene />
-              </div>
+    
+
+
 
               {/* Heart Rate Stats */}
               <div className="grid grid-cols-3 gap-4 mb-6">
