@@ -32,6 +32,7 @@ import com.example.vocaleyesnew.objectdetection.ObjectDetectionActivity
 import com.example.vocaleyesnew.textextraction.TextExtractionActivity
 import com.example.vocaleyesnew.chat.ChatActivity
 import com.example.vocaleyesnew.navigation.NavigationActivity
+import com.example.vocaleyesnew.facerecognition.FaceRecognitionActivity
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -112,8 +113,8 @@ class MainActivity : ComponentActivity() {
             setGlobalCommandListener { command ->
                 Log.d("MainActivity", "Voice command received: $command")
                 when {
-                    command.contains("test") -> {
-                        speak("Voice recognition is working! You said: $command")
+                    command.contains("test") || command.contains("hello") -> {
+                        speak("Voice recognition is working perfectly! You said: $command")
                         true
                     }
                     command.contains("object") || command.contains("detection") -> {
@@ -122,37 +123,38 @@ class MainActivity : ComponentActivity() {
                         }
                         true
                     }
-                    command.contains("navigation") -> {
+                    command.contains("navigation") || command.contains("navigate") -> {
                         speak("Opening navigation") {
                             startActivity(Intent(this@MainActivity, NavigationActivity::class.java))
                         }
                         true
                     }
                     command.contains("face") || command.contains("recognition") -> {
-                        speak("Opening face recognition")
-                        // TODO: Launch face recognition activity
+                        speak("Opening face recognition") {
+                            startActivity(Intent(this@MainActivity, FaceRecognitionActivity::class.java))
+                        }
                         true
                     }
-                    command.contains("book") || command.contains("reading") -> {
+                    command.contains("book") || command.contains("reading") || command.contains("text") || command.contains("read") -> {
                         speak("Opening book reading") {
                             startActivity(Intent(this@MainActivity, TextExtractionActivity::class.java))
                         }
                         true
                     }
-                    command.contains("currency") || command.contains("money") || command.contains("rupee") -> {
+                    command.contains("currency") || command.contains("money") || command.contains("rupee") || command.contains("cash") -> {
                         speak("Opening currency reader") {
                             startActivity(Intent(this@MainActivity, com.example.vocaleyesnew.currency.CurrencyDetectionActivity::class.java))
                         }
                         true
                     }
-                    command.contains("assistant") || command.contains("chat") -> {
+                    command.contains("assistant") || command.contains("chat") || command.contains("ai") -> {
                         speak("Opening AI Assistant") {
                             startActivity(Intent(this@MainActivity, ChatActivity::class.java))
                         }
                         true
                     }
-                    command.contains("help") || command.contains("options") -> {
-                        speak("Available commands are: object detection, navigation, face recognition, book reading, currency reader, and assistant. Say go back to return to previous screen, or go home to return to main menu.")
+                    command.contains("help") || command.contains("options") || command.contains("commands") -> {
+                        speak("Available commands are: test, object detection, navigation, face recognition, book reading, currency reader, and AI assistant. Say go back to return to previous screen, or go home to return to main menu.")
                         true
                     }
                     else -> false // Command not handled
@@ -295,8 +297,9 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
             }
 
             FeatureButton("Face Recognition") {
-                voiceRecognitionManager.speak("Opening face recognition")
-                // TODO: Launch face recognition activity
+                voiceRecognitionManager.speak("Opening face recognition") {
+                    context.startActivity(Intent(context, FaceRecognitionActivity::class.java))
+                }
             }
 
             FeatureButton("Book Reading") {

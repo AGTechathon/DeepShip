@@ -159,7 +159,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 val errorMessage = when (error) {
                     SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
                     SpeechRecognizer.ERROR_CLIENT -> "Client side error"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions - please grant microphone access"
                     SpeechRecognizer.ERROR_NETWORK -> "Network error"
                     SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
                     SpeechRecognizer.ERROR_NO_MATCH -> "No match found - continuing to listen"
@@ -171,6 +171,13 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 Log.d("VoiceRecognition", "Error: $errorMessage (Code: $error)")
                 _isListeningState.value = false
                 isListening = false
+
+                // Handle permission errors specially
+                if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                    Log.e("VoiceRecognition", "Microphone permission denied")
+                    speak("Please grant microphone permission for voice commands to work")
+                    return
+                }
 
                 // For timeout and no match errors, restart immediately
                 // These are normal and expected in always-on listening
@@ -270,17 +277,42 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 textToSpeech?.language = Locale.US
                 textToSpeech?.setSpeechRate(0.8f)
                 textToSpeech?.setPitch(1.0f)
+                Log.d("VoiceRecognition", "TextToSpeech initialized successfully")
+
+                // Announce that voice recognition is ready
+                scope.launch {
+                    delay(1000) // Give a moment for everything to settle
+                    speak("Voice recognition ready. Say test to verify.")
+                }
+            } else {
+                Log.e("VoiceRecognition", "TextToSpeech initialization failed")
             }
         }
     }
 
     fun startListening() {
+        Log.d("VoiceRecognition", "startListening called - isListening: $isListening, isPersistentListening: $isPersistentListening")
+
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            Log.e("VoiceRecognition", "Speech recognition not available on this device")
+            speak("Speech recognition is not available")
+            return
+        }
+
         if (!isListening && isPersistentListening) {
+            // Ensure we have a valid speech recognizer
+            if (speechRecognizer == null) {
+                Log.d("VoiceRecognition", "Creating new speech recognizer before starting")
+                createNewSpeechRecognizer()
+            }
+
             isListening = true
+            _isListeningState.value = true
+
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 // Set shorter timeout values for more responsive restart
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 50L)
@@ -293,7 +325,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
             try {
                 speechRecognizer?.startListening(intent)
                 lastListeningStart = System.currentTimeMillis()
-                Log.d("VoiceRecognition", "Started listening with aggressive restart strategy")
+                Log.d("VoiceRecognition", "Started listening successfully with enhanced error handling")
             } catch (e: Exception) {
                 Log.e("VoiceRecognition", "Error starting speech recognition: ${e.message}")
                 isListening = false
@@ -302,10 +334,13 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 if (isPersistentListening) {
                     scope.launch {
                         delay(1000) // Shorter delay for faster recovery
+                        createNewSpeechRecognizer() // Create fresh recognizer
                         restartListening()
                     }
                 }
             }
+        } else {
+            Log.d("VoiceRecognition", "Skipping start - already listening or persistent listening disabled")
         }
     }
 
@@ -319,8 +354,17 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     fun enablePersistentListening() {
         Log.d("VoiceRecognition", "Enabling persistent listening")
         isPersistentListening = true
+
+        // Ensure speech recognizer is properly initialized
+        if (speechRecognizer == null) {
+            createNewSpeechRecognizer()
+        }
+
         if (!isListening) {
-            startListening()
+            scope.launch {
+                delay(500) // Small delay to ensure everything is ready
+                startListening()
+            }
         }
         startHeartbeat()
         startForceRestart()

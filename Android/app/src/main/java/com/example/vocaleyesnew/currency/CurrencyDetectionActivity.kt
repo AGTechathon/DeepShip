@@ -74,7 +74,7 @@ class CurrencyDetectionActivity : BaseVoiceActivity(), TextToSpeech.OnInitListen
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             textToSpeech.language = Locale.getDefault()
-            voiceRecognitionManager.speak("Indian currency detection ready. Point your camera at rupee notes or coins. I will tell you the exact value. Say go back to return.")
+            voiceRecognitionManager.speak("currency detection ready. Point your camera at rupee notes or coins. I will tell you the exact value. Say go back to return.")
         }
     }
 
@@ -122,7 +122,7 @@ fun CurrencyDetectionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Indian Currency Detection") },
+                title = { Text("Currency Detection") },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")

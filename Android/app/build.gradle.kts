@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    kotlin("kapt")
 
     // Add the Google services Gradle plugin
     id("com.google.gms.google-services")
@@ -104,6 +105,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation("com.google.mlkit:object-detection:17.0.0")
     implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:face-detection:16.1.5")
+
+    // Room database for face storage
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
     
     // Use a known stable version of the Gemini API
     implementation("com.google.ai.client.generativeai:generativeai:0.1.1")
