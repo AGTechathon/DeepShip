@@ -88,9 +88,13 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
     const unsubscribe = onSnapshot(schedulesQuery, (snapshot) => {
       const schedulesArray: MedicineSchedule[] = []
-      
+
+      console.log('Loading schedules from Firestore. Snapshot size:', snapshot.size)
+
       snapshot.forEach((doc) => {
         const data = doc.data()
+        console.log('Schedule document data:', doc.id, data)
+
         schedulesArray.push({
           id: doc.id,
           userId: user.uid, // Use current user's UID
@@ -103,7 +107,8 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
           notes: data.notes,
         })
       })
-      
+
+      console.log('Final schedules array:', schedulesArray)
       setSchedules(schedulesArray)
       setLoading(false)
     }, (error) => {
@@ -145,7 +150,10 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
   // Generate daily medicines for the current week
   useEffect(() => {
+    console.log('Generating daily medicines. Schedules:', schedules)
+
     if (schedules.length === 0) {
+      console.log('No schedules found, setting empty daily medicines')
       setDailyMedicines([])
       return
     }
@@ -162,8 +170,14 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
       const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
       const dateString = currentDate.toISOString().split('T')[0]
 
+      console.log(`Processing day ${i}: ${dayName} (${dateString})`)
+
       schedules.forEach(schedule => {
+        console.log(`Checking schedule "${schedule.name}" - Status: ${schedule.status}, Days: [${schedule.days.join(', ')}]`)
+
         if (schedule.status === "active" && schedule.days.includes(dayName)) {
+          console.log(`✓ Schedule "${schedule.name}" matches ${dayName}`)
+
           const dailyMedicineKey = `${schedule.id}-${dateString}`
           const existingDaily = dailyMedicinesMap.get(dailyMedicineKey)
 
@@ -194,7 +208,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
             }
           }
 
-          weeklyMedicines.push({
+          const dailyMedicine = {
             id: existingDaily?.id || `${schedule.id}-${dateString}`,
             scheduleId: schedule.id,
             name: schedule.name,
@@ -203,11 +217,17 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
             date: dateString,
             status: status,
             takenAt: takenAt
-          })
+          }
+
+          console.log(`Adding daily medicine:`, dailyMedicine)
+          weeklyMedicines.push(dailyMedicine)
+        } else {
+          console.log(`✗ Schedule "${schedule.name}" does not match ${dayName} - Status: ${schedule.status}, Days: [${schedule.days.join(', ')}]`)
         }
       })
     }
 
+    console.log('Final weekly medicines:', weeklyMedicines)
     setDailyMedicines(weeklyMedicines)
   }, [schedules, dailyMedicinesMap])
 
@@ -490,11 +510,16 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
   }
 
   const getMedicinesForDay = (dayName: string, dateString: string) => {
-    return dailyMedicines.filter(med => {
-      const medDate = new Date(med.date)
-      const medDayName = medDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-      return medDayName === dayName && med.date === dateString
+    const filtered = dailyMedicines.filter(med => {
+      // Direct date comparison is more reliable
+      return med.date === dateString
     })
+
+    // Debug logging
+    console.log(`Getting medicines for ${dayName} (${dateString}):`, filtered)
+    console.log('All daily medicines:', dailyMedicines)
+
+    return filtered
   }
 
   if (loading) {
@@ -712,7 +737,15 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
                   <div className="text-xs font-medium text-gray-600 text-center mb-2">
                     {dayMedicines.length} medicine{dayMedicines.length !== 1 ? 's' : ''}
                   </div>
-                  {dayMedicines.map((medicine) => {
+                  {dayMedicines.length === 0 ? (
+                    <div className="flex items-center justify-center h-24 text-gray-400">
+                      <div className="text-center">
+                        <Pill className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                        <div className="text-xs">No medicines</div>
+                      </div>
+                    </div>
+                  ) : (
+                    dayMedicines.map((medicine) => {
                     const actualStatus = getActualStatus(medicine)
                     const isCurrentDay = isToday(medicine.date)
                     return (
@@ -780,7 +813,8 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
                         )}
                       </div>
                     )
-                  })}
+                  })
+                  )}
                 </div>
               )
             })}
