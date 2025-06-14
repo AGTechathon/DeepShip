@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Health Dashboard",
-  description: "Track your daily health metrics including steps, heart rate, and location",
+  title: "Next.js App",
+  description: "A Next.js application",
   icons: {
     icon: '/favicon.ico',
   },
