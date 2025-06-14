@@ -142,8 +142,8 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
           const alertTime = new Date()
           alertTime.setHours(hours, minutes, 0, 0)
 
-          // If alert time has passed by more than 30 minutes, mark as missed
-          if (now.getTime() - alertTime.getTime() > 30 * 60 * 1000) {
+          // If alert time has passed, mark as missed immediately
+          if (now.getTime() > alertTime.getTime()) {
             try {
               const alertRef = doc(firestore, "VocalEyes", alert.id)
               await updateDoc(alertRef, { status: "missed" })
@@ -328,17 +328,9 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       return alert.status
     }
 
-    // If it's upcoming but for today and time has passed by more than 30 minutes, it's missed
+    // If it's upcoming but for today and time has passed, it's missed immediately
     if (alert.status === "upcoming" && isToday(alert.date) && isTimePassed(alert.time)) {
-      const now = new Date()
-      const [hours, minutes] = alert.time.split(':').map(Number)
-      const alertTime = new Date()
-      alertTime.setHours(hours, minutes, 0, 0)
-
-      // If more than 30 minutes have passed, consider it missed
-      if (now.getTime() - alertTime.getTime() > 30 * 60 * 1000) {
-        return "missed"
-      }
+      return "missed"
     }
 
     return alert.status
