@@ -208,31 +208,6 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation Tabs */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Button variant="ghost" className="text-gray-500">
-            Home
-          </Button>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">Dashboard</Button>
-          <Button variant="ghost" className="text-gray-500">
-            Schedule
-          </Button>
-          <Button variant="ghost" className="text-gray-500">
-            History
-          </Button>
-          <Button variant="ghost" className="text-gray-500">
-            Activity
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-        </div>
-      </div>
-
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Health Stats */}

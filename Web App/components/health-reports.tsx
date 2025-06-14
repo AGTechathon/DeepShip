@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react"
 import type { User } from "firebase/auth"
-import { ref, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  Timestamp
+} from "firebase/firestore"
+import { firestore } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,23 +59,31 @@ export default function HealthReports({ user }: HealthReportsProps) {
   const [filterType, setFilterType] = useState("all")
   const [medicineAlerts, setMedicineAlerts] = useState<any[]>([])
 
-  // Load medicine alerts from Firebase
+  // Load medicine alerts from Firestore
   useEffect(() => {
     if (!user?.uid) return
 
-    const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+    const alertsQuery = query(
+      collection(firestore, "VocalEyes"),
+      where("userId", "==", user.uid),
+      where("type", "==", "medicine_alert")
+    )
 
-    const unsubscribe = onValue(alertsRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        const alertsArray = Object.entries(data).map(([id, alert]: [string, any]) => ({
-          id,
-          ...alert,
-        }))
-        setMedicineAlerts(alertsArray)
-      } else {
-        setMedicineAlerts([])
-      }
+    const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
+      const alertsArray: any[] = []
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        alertsArray.push({
+          id: doc.id,
+          name: data.name,
+          time: data.time,
+          dosage: data.dosage,
+          status: data.status,
+          date: data.date,
+          createdAt: data.createdAt,
+        })
+      })
+      setMedicineAlerts(alertsArray)
     })
 
     return () => unsubscribe()
