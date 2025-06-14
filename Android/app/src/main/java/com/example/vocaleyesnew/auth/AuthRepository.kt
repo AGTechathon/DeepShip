@@ -124,11 +124,11 @@ class AuthRepository(private val context: Context) {
 
         } catch (e: GetCredentialException) {
             Log.e(TAG, "GetCredentialException during Google sign in", e)
-            val errorMessage = when (e.type) {
-                GetCredentialException.TYPE_NO_CREDENTIAL -> "No Google credentials found. Please ensure you have a Google account set up on this device and that the app is properly configured in Firebase Console."
-                GetCredentialException.TYPE_USER_CANCELED -> "Google sign in was canceled by user"
-                GetCredentialException.TYPE_INTERRUPTED -> "Google sign in was interrupted"
-                else -> "Google sign in failed: ${e.message}. Please check Firebase configuration."
+            val errorMessage = when {
+                e.message?.contains("No credential available") == true -> "No Google credentials found. Please ensure you have a Google account set up on this device and that the app is properly configured in Firebase Console."
+                e.message?.contains("canceled") == true -> "Google sign in was canceled by user"
+                e.message?.contains("interrupted") == true -> "Google sign in was interrupted"
+                else -> "Google sign in failed: ${e.message}. Please check Firebase configuration and ensure SHA-1 fingerprint is added."
             }
             emit(AuthState.Error(errorMessage))
         } catch (e: Exception) {

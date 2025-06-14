@@ -18,7 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -200,19 +206,35 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
         }
     }
 
-    // Ensure voice recognition stays active with gentle monitoring
+    // Improved voice recognition monitoring with exponential backoff
     LaunchedEffect(Unit) {
         // Initial delay to let everything settle
-        delay(2000)
+        delay(3000)
         voiceRecognitionManager.enablePersistentListening()
 
-        // Gentle monitoring - check every 10 seconds to avoid rapid on/off
+        // Smart monitoring with exponential backoff to prevent conflicts
+        var consecutiveFailures = 0
+        var lastResetTime = System.currentTimeMillis()
+
         while (true) {
-            delay(10000) // Check every 10 seconds for stability
+            delay(15000) // Check every 15 seconds for better stability
+            val currentTime = System.currentTimeMillis()
+
+            // Reset restart attempts every 5 minutes for long-term stability
+            if (currentTime - lastResetTime > 300000L) { // 5 minutes
+                voiceRecognitionManager.resetRestartAttempts()
+                lastResetTime = currentTime
+                Log.d("MainActivity", "Reset voice recognition restart attempts for long-term stability")
+            }
+
             if (!voiceRecognitionManager.isCurrentlyListening()) {
-                Log.d("MainActivity", "Voice recognition not active, restarting gently")
-                delay(2000) // Wait 2 seconds before restarting to avoid rapid cycling
+                consecutiveFailures++
+                val backoffDelay = minOf(2000L * consecutiveFailures, 10000L) // Max 10 second backoff
+                Log.d("MainActivity", "Voice recognition not active, restarting after ${backoffDelay}ms (failure #$consecutiveFailures)")
+                delay(backoffDelay)
                 voiceRecognitionManager.enablePersistentListening()
+            } else {
+                consecutiveFailures = 0 // Reset on success
             }
         }
     }
@@ -249,9 +271,13 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                         )
                     }
 
-                    // Logout button
+                    // Logout button with improved accessibility
                     IconButton(
-                        onClick = { showLogoutDialog = true }
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.semantics {
+                            contentDescription = "Logout button. Double tap to logout from the application."
+                            role = Role.Button
+                        }
                     ) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
@@ -284,37 +310,55 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                 modifier = Modifier.padding(top = 16.dp)
             )
 
-            FeatureButton("Object Detection") {
+            FeatureButton(
+                text = "Object Detection",
+                description = "Object Detection feature. Identifies and describes objects in your camera view. Say 'object detection' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening object detection") {
                     context.startActivity(Intent(context, ObjectDetectionActivity::class.java))
                 }
             }
 
-            FeatureButton("Navigation") {
+            FeatureButton(
+                text = "Navigation",
+                description = "Navigation assistance feature. Provides voice-guided navigation help. Say 'navigation' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening navigation") {
                     context.startActivity(Intent(context, NavigationActivity::class.java))
                 }
             }
 
-            FeatureButton("Face Recognition") {
+            FeatureButton(
+                text = "Face Recognition",
+                description = "Face Recognition feature. Identifies and recognizes faces in your camera view. Say 'face recognition' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening face recognition") {
                     context.startActivity(Intent(context, FaceRecognitionActivity::class.java))
                 }
             }
 
-            FeatureButton("Book Reading") {
+            FeatureButton(
+                text = "Book Reading",
+                description = "Book Reading feature. Extracts and reads text from images. Say 'book reading' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening book reading") {
                     context.startActivity(Intent(context, TextExtractionActivity::class.java))
                 }
             }
 
-            FeatureButton("Currency Reader") {
+            FeatureButton(
+                text = "Currency Reader",
+                description = "Currency Reader feature. Identifies and announces currency denominations. Say 'currency reader' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening currency reader") {
                     context.startActivity(Intent(context, com.example.vocaleyesnew.currency.CurrencyDetectionActivity::class.java))
                 }
             }
 
-            FeatureButton("AI Assistant") {
+            FeatureButton(
+                text = "AI Assistant",
+                description = "AI Assistant feature. Chat with an AI assistant for help and information. Say 'AI assistant' or tap to open."
+            ) {
                 voiceRecognitionManager.speak("Opening AI Assistant") {
                     context.startActivity(Intent(context, ChatActivity::class.java))
                 }
@@ -361,12 +405,25 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
 }
 
 @Composable
-fun FeatureButton(text: String, onClick: () -> Unit) {
+fun FeatureButton(
+    text: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    val hapticFeedback = LocalHapticFeedback.current
+
     Button(
-        onClick = onClick,
+        onClick = {
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier
             .fillMaxWidth()
             .height(72.dp)
+            .semantics {
+                contentDescription = description
+                role = Role.Button
+            }
     ) {
         Text(
             text = text,

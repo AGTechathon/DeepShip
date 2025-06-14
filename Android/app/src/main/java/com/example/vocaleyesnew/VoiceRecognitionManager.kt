@@ -32,10 +32,12 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     private val heartbeatHandler = Handler(Looper.getMainLooper())
     private val forceRestartHandler = Handler(Looper.getMainLooper())
     private var lastHeartbeat = 0L
-    private val heartbeatInterval = 1000L // Check every 1 second (very aggressive)
+    private val heartbeatInterval = 5000L // Check every 5 seconds (more stable)
     private var lastListeningStart = 0L
-    private val maxListeningDuration = 4000L // Force restart after 4 seconds
-    private val forceRestartInterval = 8000L // Force restart every 8 seconds
+    private val maxListeningDuration = 30000L // Force restart after 30 seconds (much longer)
+    private val forceRestartInterval = 60000L // Force restart every 60 seconds (much less aggressive)
+    private var restartAttempts = 0
+    private val maxRestartAttempts = 3
 
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
@@ -179,19 +181,29 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                     return
                 }
 
-                // For timeout and no match errors, restart immediately
-                // These are normal and expected in always-on listening
-                if (isPersistentListening) {
-                    val restartDelay = when (error) {
+                // Improved error handling with exponential backoff
+                if (isPersistentListening && restartAttempts < maxRestartAttempts) {
+                    restartAttempts++
+                    val baseDelay = when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 50L // Very fast restart for timeouts
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1000L // 1 second for normal timeouts
                         SpeechRecognizer.ERROR_AUDIO,
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 200L // Very short delay for audio issues
-                        else -> 500L // Much shorter delay for other errors
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 2000L // 2 seconds for audio issues
+                        else -> 3000L // 3 seconds for other errors
                     }
+
+                    // Exponential backoff: delay increases with each attempt
+                    val restartDelay = baseDelay * restartAttempts
 
                     scope.launch {
                         delay(restartDelay)
+                        restartListening()
+                    }
+                } else if (restartAttempts >= maxRestartAttempts) {
+                    Log.w("VoiceRecognition", "Max restart attempts reached, waiting longer before retry")
+                    scope.launch {
+                        delay(30000L) // Wait 30 seconds before resetting attempts
+                        restartAttempts = 0
                         restartListening()
                     }
                 }
@@ -204,6 +216,9 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                     _recognizedText.value = recognizedText
                     Log.d("VoiceRecognition", "Recognized: $recognizedText")
 
+                    // Reset restart attempts on successful recognition
+                    restartAttempts = 0
+
                     // Process command through hierarchy
                     processCommand(recognizedText)
                 }
@@ -213,7 +228,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 // Continue listening if persistent listening is enabled
                 if (isPersistentListening) {
                     scope.launch {
-                        delay(100) // Minimal pause before restarting for continuous listening
+                        delay(500) // Slightly longer pause for stability
                         restartListening()
                     }
                 }
@@ -354,6 +369,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     fun enablePersistentListening() {
         Log.d("VoiceRecognition", "Enabling persistent listening")
         isPersistentListening = true
+        restartAttempts = 0 // Reset restart attempts when enabling
 
         // Ensure speech recognizer is properly initialized
         if (speechRecognizer == null) {
@@ -362,12 +378,17 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
 
         if (!isListening) {
             scope.launch {
-                delay(500) // Small delay to ensure everything is ready
+                delay(1000) // Longer delay to ensure everything is ready
                 startListening()
             }
         }
         startHeartbeat()
         startForceRestart()
+    }
+
+    fun resetRestartAttempts() {
+        restartAttempts = 0
+        Log.d("VoiceRecognition", "Restart attempts reset")
     }
 
     private fun startHeartbeat() {
@@ -377,18 +398,20 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 if (isPersistentListening) {
                     val currentTime = System.currentTimeMillis()
 
-                    // Check if we haven't been listening for more than heartbeat interval
-                    if (!isListening && (currentTime - lastHeartbeat > heartbeatInterval)) {
-                        Log.d("VoiceRecognition", "Heartbeat: Restarting voice recognition - not listening")
-                        restartListening()
+                    // More conservative heartbeat - only restart if really needed
+                    if (!isListening && (currentTime - lastHeartbeat > heartbeatInterval * 2)) {
+                        Log.d("VoiceRecognition", "Heartbeat: Restarting voice recognition - not listening for ${(currentTime - lastHeartbeat) / 1000} seconds")
+                        if (restartAttempts < maxRestartAttempts) {
+                            restartListening()
+                        }
                     }
 
-                    // Check if we've been listening too long without restart (force restart)
+                    // Much more conservative force restart - only after very long sessions
                     if (isListening && (currentTime - lastListeningStart > maxListeningDuration)) {
-                        Log.d("VoiceRecognition", "Heartbeat: Force restarting after long listening session")
+                        Log.d("VoiceRecognition", "Heartbeat: Force restarting after ${maxListeningDuration / 1000} second listening session")
                         stopListening()
                         scope.launch {
-                            delay(100) // Very brief pause before restart
+                            delay(1000) // Longer pause before restart for stability
                             restartListening()
                         }
                     }
@@ -405,14 +428,17 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
         forceRestartHandler.removeCallbacksAndMessages(null)
         val forceRestartRunnable = object : Runnable {
             override fun run() {
-                if (isPersistentListening) {
-                    Log.d("VoiceRecognition", "Force restart: Proactively restarting speech recognition")
+                if (isPersistentListening && restartAttempts < maxRestartAttempts) {
+                    Log.d("VoiceRecognition", "Force restart: Proactively restarting speech recognition after ${forceRestartInterval / 1000} seconds")
                     stopListening()
                     scope.launch {
-                        delay(50) // Minimal delay
+                        delay(2000) // Longer delay for stability
                         restartListening()
                     }
                     forceRestartHandler.postDelayed(this, forceRestartInterval)
+                } else if (isPersistentListening) {
+                    Log.d("VoiceRecognition", "Force restart: Skipping due to max restart attempts reached")
+                    forceRestartHandler.postDelayed(this, forceRestartInterval * 2) // Wait longer before next check
                 }
             }
         }
