@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
@@ -20,6 +21,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.vocaleyesnew.auth.AuthState
+import com.example.vocaleyesnew.auth.AuthViewModel
+import com.example.vocaleyesnew.auth.LoginActivity
 import com.example.vocaleyesnew.objectdetection.ObjectDetectionActivity
 import com.example.vocaleyesnew.textextraction.TextExtractionActivity
 import com.example.vocaleyesnew.chat.ChatActivity
@@ -38,15 +44,35 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val authViewModel: AuthViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return AuthViewModel(applicationContext) as T
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Check authentication state
+        if (authViewModel.authState.value !is AuthState.Authenticated) {
+            // User is not authenticated, redirect to login
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+            return
+        }
+
         voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
         voiceRecognitionManager.setCurrentActivity(this)
         checkPermissionAndStartVoiceRecognition()
 
         setContent {
             VocalEyesNewTheme {
-                HomeScreen(voiceRecognitionManager)
+                HomeScreen(voiceRecognitionManager, authViewModel)
             }
         }
     }
@@ -132,10 +158,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager) {
+fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: AuthViewModel) {
     val scope = rememberCoroutineScope()
     var isFirstLaunch by remember { mutableStateOf(true) }
     val isListening by voiceRecognitionManager.isListeningState.collectAsState()
+    val authState by authViewModel.authState.collectAsState()
 
     LaunchedEffect(isFirstLaunch) {
         if (isFirstLaunch) {
@@ -144,6 +171,17 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager) {
                 "Welcome to VocalEyes. Voice recognition is always active. You can say: object detection, navigation, face recognition, book reading, or assistant. Say help for options. What would you like to do?",
             )
             isFirstLaunch = false
+        }
+    }
+
+    // Monitor auth state for logout
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Unauthenticated) {
+            // User logged out, redirect to login
+            val context = voiceRecognitionManager.getContext()
+            val intent = Intent(context, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            context.startActivity(intent)
         }
     }
 
@@ -182,20 +220,39 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicOff,
-                        contentDescription = if (isListening) "Listening" else "Not Listening",
-                        tint = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isListening) "Voice Recognition Active" else "Voice Recognition Inactive",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isListening) Icons.Default.Mic else Icons.Default.MicOff,
+                            contentDescription = if (isListening) "Listening" else "Not Listening",
+                            tint = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isListening) "Voice Recognition Active" else "Voice Recognition Inactive",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+
+                    // Logout button
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                authViewModel.signOut()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         }
