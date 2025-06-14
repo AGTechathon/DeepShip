@@ -30,8 +30,12 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val restartHandler = Handler(Looper.getMainLooper())
     private val heartbeatHandler = Handler(Looper.getMainLooper())
+    private val forceRestartHandler = Handler(Looper.getMainLooper())
     private var lastHeartbeat = 0L
-    private val heartbeatInterval = 5000L // Check every 5 seconds
+    private val heartbeatInterval = 1000L // Check every 1 second (very aggressive)
+    private var lastListeningStart = 0L
+    private val maxListeningDuration = 4000L // Force restart after 4 seconds
+    private val forceRestartInterval = 2500L // Force restart every 2.5 seconds regardless
 
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
@@ -184,10 +188,10 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 if (isPersistentListening) {
                     val restartDelay = when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 100L // Immediate restart for timeouts
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 50L // Very fast restart for timeouts
                         SpeechRecognizer.ERROR_AUDIO,
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 500L // Short delay for audio issues
-                        else -> 2000L // Longer delay for serious errors
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 200L // Very short delay for audio issues
+                        else -> 500L // Much shorter delay for other errors
                     }
 
                     scope.launch {
@@ -213,7 +217,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 // Continue listening if persistent listening is enabled
                 if (isPersistentListening) {
                     scope.launch {
-                        delay(200) // Very brief pause before restarting for continuous listening
+                        delay(100) // Minimal pause before restarting for continuous listening
                         restartListening()
                     }
                 }
@@ -289,17 +293,18 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                // Set very long timeout values to prevent automatic stopping
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 100L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L) // 10 seconds
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L) // 10 seconds
+                // Set shorter timeout values for more responsive restart
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 50L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L) // 2 seconds
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L) // 2 seconds
                 // Add additional parameters to keep listening active
                 putExtra("android.speech.extra.DICTATION_MODE", true)
                 putExtra("android.speech.extra.PREFER_OFFLINE", false)
             }
             try {
                 speechRecognizer?.startListening(intent)
-                Log.d("VoiceRecognition", "Started listening with extended timeouts")
+                lastListeningStart = System.currentTimeMillis()
+                Log.d("VoiceRecognition", "Started listening with aggressive restart strategy")
             } catch (e: Exception) {
                 Log.e("VoiceRecognition", "Error starting speech recognition: ${e.message}")
                 isListening = false
@@ -328,6 +333,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
             startListening()
         }
         startHeartbeat()
+        startForceRestart()
     }
 
     private fun startHeartbeat() {
@@ -336,11 +342,23 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
             override fun run() {
                 if (isPersistentListening) {
                     val currentTime = System.currentTimeMillis()
-                    // If we haven't been listening for more than heartbeat interval, restart
+
+                    // Check if we haven't been listening for more than heartbeat interval
                     if (!isListening && (currentTime - lastHeartbeat > heartbeatInterval)) {
-                        Log.d("VoiceRecognition", "Heartbeat: Restarting voice recognition")
+                        Log.d("VoiceRecognition", "Heartbeat: Restarting voice recognition - not listening")
                         restartListening()
                     }
+
+                    // Check if we've been listening too long without restart (force restart)
+                    if (isListening && (currentTime - lastListeningStart > maxListeningDuration)) {
+                        Log.d("VoiceRecognition", "Heartbeat: Force restarting after long listening session")
+                        stopListening()
+                        scope.launch {
+                            delay(100) // Very brief pause before restart
+                            restartListening()
+                        }
+                    }
+
                     lastHeartbeat = currentTime
                     heartbeatHandler.postDelayed(this, heartbeatInterval)
                 }
@@ -349,9 +367,28 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
         heartbeatHandler.postDelayed(heartbeatRunnable, heartbeatInterval)
     }
 
+    private fun startForceRestart() {
+        forceRestartHandler.removeCallbacksAndMessages(null)
+        val forceRestartRunnable = object : Runnable {
+            override fun run() {
+                if (isPersistentListening) {
+                    Log.d("VoiceRecognition", "Force restart: Proactively restarting speech recognition")
+                    stopListening()
+                    scope.launch {
+                        delay(50) // Minimal delay
+                        restartListening()
+                    }
+                    forceRestartHandler.postDelayed(this, forceRestartInterval)
+                }
+            }
+        }
+        forceRestartHandler.postDelayed(forceRestartRunnable, forceRestartInterval)
+    }
+
     fun disablePersistentListening() {
         isPersistentListening = false
         heartbeatHandler.removeCallbacksAndMessages(null)
+        forceRestartHandler.removeCallbacksAndMessages(null)
         stopListening()
     }
 
@@ -413,6 +450,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
         stopListening()
         restartHandler.removeCallbacksAndMessages(null)
         heartbeatHandler.removeCallbacksAndMessages(null)
+        forceRestartHandler.removeCallbacksAndMessages(null)
         speechRecognizer?.destroy()
         speechRecognizer = null
         textToSpeech?.stop()

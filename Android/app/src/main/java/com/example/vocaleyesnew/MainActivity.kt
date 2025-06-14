@@ -57,6 +57,12 @@ class MainActivity : ComponentActivity() {
         voiceRecognitionManager.enablePersistentListening()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Keep voice recognition active even when paused for accessibility
+        Log.d("MainActivity", "Activity paused but keeping voice recognition active")
+    }
+
     private fun checkPermissionAndStartVoiceRecognition() {
         when {
             ContextCompat.checkSelfPermission(
@@ -141,17 +147,25 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager) {
         }
     }
 
-    // Ensure voice recognition stays active with monitoring
+    // Ensure voice recognition stays active with aggressive monitoring
     LaunchedEffect(Unit) {
         voiceRecognitionManager.enablePersistentListening()
 
-        // Monitor voice recognition state and force restart if needed
+        // Very aggressive monitoring - check every 1 second
         while (true) {
-            delay(3000) // Check every 3 seconds
+            delay(1000) // Check every 1 second
             if (!voiceRecognitionManager.isCurrentlyListening()) {
-                Log.d("MainActivity", "Voice recognition not active, forcing restart")
+                Log.d("MainActivity", "Voice recognition not active, forcing immediate restart")
                 voiceRecognitionManager.enablePersistentListening()
             }
+        }
+    }
+
+    // Additional monitoring for microphone state
+    LaunchedEffect(isListening) {
+        if (!isListening && voiceRecognitionManager.isCurrentlyListening()) {
+            Log.d("MainActivity", "Microphone state mismatch detected, forcing restart")
+            voiceRecognitionManager.enablePersistentListening()
         }
     }
 
