@@ -23,12 +23,51 @@ class ChatViewModel : ViewModel() {
 
     private var textToSpeech: TextToSpeech? = null
     private var generativeModel: GenerativeModel? = null
+    private val conversationHistory = mutableListOf<String>()
 
     companion object {
         private const val API_KEY = "AIzaSyDpuTNjPEe3NX4qrpqoriscoCFLW7Bll8k"
         private const val PROJECT_NUMBER = "270025439616"
         private const val MODEL_NAME = "gemini-2.0-flash"
         private const val TAG = "ChatViewModel"
+
+        private val SYSTEM_PROMPT = """
+You are VocalEyes AI Assistant, a specialized personal assistant designed specifically for blind and visually impaired users. Your role is to be:
+
+**Core Identity:**
+- A compassionate, patient, and understanding AI companion
+- An accessibility-focused assistant who prioritizes clear, concise communication
+- A knowledgeable helper for daily tasks, navigation, and independence
+
+**Communication Style:**
+- Use clear, descriptive language that paints vivid mental pictures
+- Provide step-by-step instructions when needed
+- Be concise but thorough - avoid overwhelming with too much information at once
+- Use spatial descriptions (left, right, forward, behind) when relevant
+- Speak in a warm, encouraging tone
+
+**Key Capabilities & Focus Areas:**
+- Help with daily living tasks and routines
+- Provide detailed descriptions of objects, places, and situations
+- Assist with navigation and orientation guidance
+- Help with technology usage and accessibility features
+- Offer emotional support and encouragement
+- Provide information about accessibility resources and tools
+- Help with reading and interpreting text, documents, or visual content
+- Assist with shopping, cooking, and household management
+- Support with work, education, and social activities
+
+**Important Guidelines:**
+- Always prioritize safety in your recommendations
+- Respect the user's independence and capabilities
+- Ask clarifying questions when instructions might be ambiguous
+- Offer multiple approaches when possible
+- Be aware that users rely on audio feedback, so structure responses clearly
+- Acknowledge the user's expertise about their own needs and preferences
+- Provide encouragement and positive reinforcement
+
+Remember: You are not just an AI - you are a trusted companion helping someone navigate the world with confidence and independence.
+        """.trimIndent()
     }
 
     fun initialize(context: Context) {
@@ -57,11 +96,11 @@ class ChatViewModel : ViewModel() {
             )
             
             // Add initial greeting
+            val greetingMessage = "Hello! I'm VocalEyes AI Assistant, your personal companion designed specifically for blind and visually impaired users. I'm here to help you with daily tasks, navigation, descriptions, and anything else you need. How can I assist you today?"
             _messages.value = listOf(
-                ChatMessage("Hello! I'm your AI assistant. How can I help you today?", false)
+                ChatMessage(greetingMessage, false)
             )
-            textToSpeech?.speak("Hello! I'm your AI assistant. How can I help you today?",
-                TextToSpeech.QUEUE_FLUSH, null, "greeting")
+            textToSpeech?.speak(greetingMessage, TextToSpeech.QUEUE_FLUSH, null, "greeting")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing Gemini: ${e.message}", e)
             _messages.value = listOf(
@@ -74,17 +113,35 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             _isProcessing.value = true
             
-            // Add user message to chat
+            // Add user message to chat and conversation history
             _messages.value = _messages.value + ChatMessage(message, true)
+            conversationHistory.add("User: $message")
             
             try {
                 if (generativeModel == null) {
                     throw Exception("AI model not initialized")
                 }
 
-                // Generate response using Gemini
+                // Build conversation context
+                val contextualPrompt = buildString {
+                    append(SYSTEM_PROMPT)
+                    append("\n\n")
+
+                    // Add recent conversation history for context (last 6 messages)
+                    if (conversationHistory.isNotEmpty()) {
+                        append("Recent conversation context:\n")
+                        conversationHistory.takeLast(6).forEach { historyItem ->
+                            append("$historyItem\n")
+                        }
+                        append("\n")
+                    }
+
+                    append("Current user message: $message")
+                }
+
+                // Generate response using Gemini with system prompt and context
                 val prompt = content {
-                    text("You are a helpful AI assistant. Please respond to: $message")
+                    text(contextualPrompt)
                 }
                 
                 val response = generativeModel?.generateContent(prompt)
@@ -94,6 +151,13 @@ class ChatViewModel : ViewModel() {
                         throw Exception("Empty response from AI model")
                     }
                     _messages.value = _messages.value + ChatMessage(responseText, false)
+                    conversationHistory.add("VocalEyes AI: $responseText")
+
+                    // Keep conversation history manageable (max 20 entries)
+                    if (conversationHistory.size > 20) {
+                        conversationHistory.removeAt(0)
+                    }
+
                     textToSpeech?.speak(responseText, TextToSpeech.QUEUE_FLUSH, null, "message_${System.currentTimeMillis()}")
                 } else {
                     throw Exception("Null response from AI model")
@@ -119,10 +183,20 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+    fun clearConversation() {
+        _messages.value = listOf(
+            ChatMessage("Conversation cleared. How can I help you?", false)
+        )
+        conversationHistory.clear()
+        textToSpeech?.speak("Conversation cleared. How can I help you?",
+            TextToSpeech.QUEUE_FLUSH, null, "clear_${System.currentTimeMillis()}")
+    }
+
     override fun onCleared() {
         super.onCleared()
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
+        conversationHistory.clear()
     }
 } 

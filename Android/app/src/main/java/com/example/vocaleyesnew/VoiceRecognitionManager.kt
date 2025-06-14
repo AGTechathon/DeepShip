@@ -35,7 +35,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     private val heartbeatInterval = 1000L // Check every 1 second (very aggressive)
     private var lastListeningStart = 0L
     private val maxListeningDuration = 4000L // Force restart after 4 seconds
-    private val forceRestartInterval = 2500L // Force restart every 2.5 seconds regardless
+    private val forceRestartInterval = 8000L // Force restart every 8 seconds
 
     private val _recognizedText = MutableStateFlow("")
     val recognizedText: StateFlow<String> = _recognizedText
@@ -75,18 +75,6 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     init {
         initializeTextToSpeech()
         initializeSpeechRecognizer()
-    }
-
-    fun setCurrentActivity(activity: Activity) {
-        currentActivity = activity
-    }
-
-    fun setGlobalCommandListener(listener: (String) -> Boolean) {
-        globalCommandListener = listener
-    }
-
-    fun setActivitySpecificListener(listener: (String) -> Boolean) {
-        activitySpecificListener = listener
     }
 
     private fun handleGoBack() {
@@ -136,7 +124,8 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     private fun initializeSpeechRecognizer() {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             createNewSpeechRecognizer()
-            speak("Voice recognition ready")
+            Log.d("VoiceRecognition", "Speech recognition initialized successfully")
+            // "Voice recognition ready" message removed as requested
         } else {
             Log.e("VoiceRecognition", "Speech recognition not available")
             speak("Speech recognition not available on this device")
@@ -328,6 +317,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
     }
 
     fun enablePersistentListening() {
+        Log.d("VoiceRecognition", "Enabling persistent listening")
         isPersistentListening = true
         if (!isListening) {
             startListening()
@@ -443,6 +433,18 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
 
     fun isCurrentlyListening(): Boolean {
         return isListening && isPersistentListening
+    }
+
+    fun setGlobalCommandListener(listener: (String) -> Boolean) {
+        globalCommandListener = listener
+    }
+
+    fun setActivitySpecificListener(listener: (String) -> Boolean) {
+        activitySpecificListener = listener
+    }
+
+    fun setCurrentActivity(activity: Activity) {
+        currentActivity = activity
     }
 
     fun cleanup() {

@@ -73,8 +73,7 @@ class ChatActivity : ComponentActivity() {
                     true
                 }
                 command.contains("clear chat") || command.contains("clear") -> {
-                    voiceRecognitionManager.speak("Clearing chat history")
-                    // TODO: Implement clear chat functionality
+                    viewModel.clearConversation()
                     true
                 }
                 command.contains("repeat last") || command.contains("repeat") -> {

@@ -106,10 +106,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startVoiceRecognition() {
+        Log.d("MainActivity", "Starting voice recognition setup")
         voiceRecognitionManager.apply {
             // Set up global command listener for MainActivity
             setGlobalCommandListener { command ->
+                Log.d("MainActivity", "Voice command received: $command")
                 when {
+                    command.contains("test") -> {
+                        speak("Voice recognition is working! You said: $command")
+                        true
+                    }
                     command.contains("object") || command.contains("detection") -> {
                         speak("Opening object detection") {
                             startActivity(Intent(this@MainActivity, ObjectDetectionActivity::class.java))
@@ -171,9 +177,7 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
     LaunchedEffect(isFirstLaunch) {
         if (isFirstLaunch) {
             delay(1500) // Wait for TTS and voice recognition to initialize
-            voiceRecognitionManager.speak(
-                "Welcome to VocalEyes. Voice recognition is always active. You can say: object detection, navigation, face recognition, book reading, or assistant. Say help for options. What would you like to do?",
-            )
+            // Startup voice message removed as requested
             isFirstLaunch = false
         }
     }
@@ -304,7 +308,7 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Say 'Help' for available commands",
+                text = "Say 'Help' for available commands or 'Test' to verify voice recognition",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
