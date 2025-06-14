@@ -5,7 +5,8 @@ import type { User } from "firebase/auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Footprints, MapPin, Filter, MoreHorizontal } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 
@@ -26,6 +27,14 @@ const heartRateData = [
 
 export default function Dashboard({ user }: DashboardProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentHeartRate, setCurrentHeartRate] = useState(78)
+  const [heartRateHistory, setHeartRateHistory] = useState(heartRateData)
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false)
+  const [heartRateStats, setHeartRateStats] = useState({
+    average: 78,
+    minimum: 65,
+    maximum: 95
+  })
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -34,6 +43,54 @@ export default function Dashboard({ user }: DashboardProps) {
 
     return () => clearInterval(timer)
   }, [])
+
+  // Realtime heart rate simulation
+  useEffect(() => {
+    if (!isRealtimeActive) return
+
+    const heartRateInterval = setInterval(() => {
+      // Simulate realistic heart rate variations (60-100 BPM normal range)
+      const baseRate = 75
+      const variation = Math.sin(Date.now() / 10000) * 10 + Math.random() * 8 - 4
+      const newRate = Math.round(Math.max(60, Math.min(100, baseRate + variation)))
+
+      setCurrentHeartRate(newRate)
+
+      // Update chart data (keep last 8 points)
+      const now = new Date()
+      const timeString = now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+
+      setHeartRateHistory(prev => {
+        const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
+
+        // Update stats based on recent data
+        const rates = newData.map(d => d.rate)
+        const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
+        const min = Math.min(...rates)
+        const max = Math.max(...rates)
+
+        setHeartRateStats({ average: avg, minimum: min, maximum: max })
+
+        return newData
+      })
+    }, 2000) // Update every 2 seconds
+
+    return () => clearInterval(heartRateInterval)
+  }, [isRealtimeActive])
+
+  const toggleRealtime = () => {
+    setIsRealtimeActive(!isRealtimeActive)
+  }
+
+  const getHeartRateStatus = (rate: number) => {
+    if (rate < 60) return { status: "Low", color: "bg-blue-500", textColor: "text-blue-600" }
+    if (rate > 100) return { status: "High", color: "bg-red-500", textColor: "text-red-600" }
+    return { status: "Normal", color: "bg-green-500", textColor: "text-green-600" }
+  }
 
   return (
     <div className="space-y-6">
@@ -67,7 +124,7 @@ export default function Dashboard({ user }: DashboardProps) {
         {/* Left Column - Health Stats */}
         <div className="lg:col-span-2 space-y-6">
           {/* Health Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Steps */}
             <Card className="relative overflow-hidden">
               <CardContent className="p-6">
@@ -81,6 +138,48 @@ export default function Dashboard({ user }: DashboardProps) {
                   <div className="text-3xl font-bold">1,524</div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <span>+100% This day</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Realtime Heart Rate */}
+            <Card className="relative overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500 animate-pulse' : 'text-red-600'}`} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">Heart Rate</span>
+                  </div>
+                  <Button
+                    onClick={toggleRealtime}
+                    variant={isRealtimeActive ? "destructive" : "outline"}
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                  >
+                    {isRealtimeActive ? "Stop" : "Start"}
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-3xl font-bold text-red-600">{currentHeartRate}</div>
+                    <span className="text-sm text-gray-500">BPM</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getHeartRateStatus(currentHeartRate).textColor} border-current`}
+                    >
+                      {getHeartRateStatus(currentHeartRate).status}
+                    </Badge>
+                    {isRealtimeActive && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        Live
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -220,6 +319,39 @@ export default function Dashboard({ user }: DashboardProps) {
               </Button>
             </CardHeader>
             <CardContent>
+              {/* Realtime Heart Rate Display */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
+                    <span className="font-semibold">Live Heart Rate</span>
+                  </div>
+                  <Badge className={getHeartRateStatus(currentHeartRate).color}>
+                    {getHeartRateStatus(currentHeartRate).status}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-red-600">{currentHeartRate}</div>
+                    <div className="text-sm text-gray-500">BPM</div>
+                  </div>
+                  <Button
+                    onClick={toggleRealtime}
+                    variant={isRealtimeActive ? "destructive" : "default"}
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Activity className="h-4 w-4" />
+                    {isRealtimeActive ? "Stop" : "Start"} Live
+                  </Button>
+                </div>
+                {isRealtimeActive && (
+                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    Live monitoring active
+                  </div>
+                )}
+              </div>
               {/* 3D Heart Visualization */}
               <div className="h-48 mb-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-lg overflow-hidden">
                 <ThreeScene />
@@ -232,7 +364,7 @@ export default function Dashboard({ user }: DashboardProps) {
                     <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                     <span className="text-xs text-gray-500">Average</span>
                   </div>
-                  <div className="text-2xl font-bold">98</div>
+                  <div className="text-2xl font-bold">{heartRateStats.average}</div>
                   <div className="text-xs text-gray-500">BPM</div>
                 </div>
                 <div className="text-center">
@@ -240,7 +372,7 @@ export default function Dashboard({ user }: DashboardProps) {
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <span className="text-xs text-gray-500">Minimum</span>
                   </div>
-                  <div className="text-2xl font-bold">48</div>
+                  <div className="text-2xl font-bold">{heartRateStats.minimum}</div>
                   <div className="text-xs text-gray-500">BPM</div>
                 </div>
                 <div className="text-center">
@@ -248,7 +380,7 @@ export default function Dashboard({ user }: DashboardProps) {
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-xs text-gray-500">Maximum</span>
                   </div>
-                  <div className="text-2xl font-bold">118</div>
+                  <div className="text-2xl font-bold">{heartRateStats.maximum}</div>
                   <div className="text-xs text-gray-500">BPM</div>
                 </div>
               </div>
@@ -256,24 +388,31 @@ export default function Dashboard({ user }: DashboardProps) {
               {/* Heart Rate Chart */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold">Heart Rate</h4>
-                  <Button variant="link" className="text-purple-600 text-sm">
-                    Real Time
-                  </Button>
+                  <h4 className="font-semibold">Heart Rate Trend</h4>
+                  <div className="flex items-center gap-2">
+                    {isRealtimeActive && (
+                      <Badge variant="outline" className="text-xs">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                        Live
+                      </Badge>
+                    )}
+                    <span className="text-xs text-gray-500">Last 8 readings</span>
+                  </div>
                 </div>
                 <div className="h-32">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={heartRateData}>
+                    <LineChart data={heartRateHistory}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#666" }} />
-                      <YAxis hide />
+                      <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                       <Line
                         type="monotone"
                         dataKey="rate"
-                        stroke="#8b5cf6"
+                        stroke={isRealtimeActive ? "#ef4444" : "#8b5cf6"}
                         strokeWidth={2}
-                        dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 3 }}
-                        activeDot={{ r: 4, fill: "#8b5cf6" }}
+                        dot={{ fill: isRealtimeActive ? "#ef4444" : "#8b5cf6", strokeWidth: 2, r: 3 }}
+                        activeDot={{ r: 4, fill: isRealtimeActive ? "#ef4444" : "#8b5cf6" }}
+                        connectNulls={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
