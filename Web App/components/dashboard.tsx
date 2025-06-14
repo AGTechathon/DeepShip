@@ -15,15 +15,7 @@ import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
 import { motion, AnimatePresence } from "framer-motion"
 
-// Dynamically import the compact map component to avoid SSR issues
-const CompactLocationMap = dynamic(() => import("@/components/compact-location-map"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
-      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-    </div>
-  ),
-})
+
 
 interface DashboardProps {
   user: User
@@ -64,7 +56,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   })
   const [fitSteps, setFitSteps] = useState<number | null>(null)
   const [fitHeartRate, setFitHeartRate] = useState<number | null>(null)
-  const [fitLocation, setFitLocation] = useState<{lat: number, lng: number} | null>(null)
+
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -183,13 +175,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           avgHeart = Math.round(sum / heartPoints.length);
         }
         setFitHeartRate(avgHeart);
-        
-        // Parse location (last sample)
-        const locPoints = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('location'))?.point;
-        if (locPoints && locPoints.length > 0) {
-          const last = locPoints[locPoints.length - 1];
-          setFitLocation({ lat: last.value?.[0]?.fpVal, lng: last.value?.[1]?.fpVal });
-        }
+
       } catch (error) {
         console.error('Error fetching Google Fit data:', error);
         // You might want to show an error message to the user here
@@ -702,99 +688,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
               </motion.div>
             </CardContent>
           </Card>
-
-          {/* Live Location Preview */}
-          <motion.div
-            variants={cardVariants}
-            whileHover={{
-              scale: 1.01,
-              boxShadow: "0 15px 30px rgba(0,0,0,0.1)",
-              transition: { duration: 0.3 }
-            }}
-          >
-            <Card>
-              <CardHeader>
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 1.8 }}
-                >
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <motion.div
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <MapPin className="h-5 w-5" />
-                    </motion.div>
-                    Live Location
-                  </CardTitle>
-                </motion.div>
-              </CardHeader>
-              <CardContent>
-                <AnimatePresence mode="wait">
-                  {fitLocation ? (
-                    <motion.div
-                      className="space-y-2"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      key="location-active"
-                    >
-                      <motion.div
-                        className="h-32 rounded-lg overflow-hidden"
-                        whileHover={{ scale: 1.02 }}
-                      >
-                        <CompactLocationMap
-                          latitude={fitLocation.lat}
-                          longitude={fitLocation.lng}
-                        />
-                      </motion.div>
-                      <motion.div
-                        className="text-xs text-gray-500 text-center"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.3 }}
-                      >
-                        Lat: {fitLocation.lat.toFixed(6)}, Lng: {fitLocation.lng.toFixed(6)}
-                      </motion.div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      key="location-disabled"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                      <motion.div
-                        className="text-center"
-                        initial={{ y: 10, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        <motion.div
-                          animate={{ y: [0, -5, 0] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                        </motion.div>
-                        <p className="text-sm text-gray-600">Location tracking disabled</p>
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <Button variant="link" className="text-blue-600 text-sm">
-                            Enable tracking
-                          </Button>
-                        </motion.div>
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </CardContent>
-            </Card>
           </motion.div>
+
+
         </motion.div>
       </motion.div>
     </motion.div>
