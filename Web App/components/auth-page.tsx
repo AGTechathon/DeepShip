@@ -4,8 +4,9 @@ import type React from "react"
 
 import { useState } from "react"
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
-import { ref, set } from "firebase/database"
-import { auth, database } from "@/lib/firebase"
+import { auth } from "@/lib/firebase"
+import { initializeUserInFirestore } from "@/lib/user-initialization"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Heart } from "lucide-react"
+import { Toaster } from "sonner"
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
@@ -22,18 +24,18 @@ export default function AuthPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const initializeUserData = async (userId: string) => {
-    const userRef = ref(database, `users/${userId}`)
-    await set(userRef, {
-      dashboard: {},
-      healthReports: {},
-      medicineAlerts: [],
-      liveLocation: {
-        lat: null,
-        lng: null,
-        lastUpdated: null,
-      },
-    })
+  const initializeUserData = async (user: any) => {
+    try {
+      await initializeUserInFirestore(user)
+      toast.success("Welcome to HealthPulse!", {
+        description: "Your account has been set up successfully."
+      })
+    } catch (error: any) {
+      console.error("Error initializing user data:", error)
+      toast.error("Setup Error", {
+        description: "There was an issue setting up your account. Please try again."
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,13 +45,21 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password)
+        const userCredential = await signInWithEmailAndPassword(auth, email, password)
+        // Initialize user data for existing users who might not have Firestore data
+        await initializeUserData(userCredential.user)
+        toast.success("Welcome back!", {
+          description: "You have been signed in successfully."
+        })
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-        await initializeUserData(userCredential.user.uid)
+        await initializeUserData(userCredential.user)
       }
     } catch (error: any) {
       setError(error.message)
+      toast.error("Authentication Error", {
+        description: error.message
+      })
     } finally {
       setLoading(false)
     }
@@ -63,12 +73,26 @@ export default function AuthPage() {
       const provider = new GoogleAuthProvider()
       const userCredential = await signInWithPopup(auth, provider)
 
-      // Check if this is a new user and initialize data if needed
-      if (userCredential.user.metadata.creationTime === userCredential.user.metadata.lastSignInTime) {
-        await initializeUserData(userCredential.user.uid)
+      // Initialize user data (will check if user already exists)
+      await initializeUserData(userCredential.user)
+
+      // Check if this is a new user
+      const isNewUser = userCredential.user.metadata.creationTime === userCredential.user.metadata.lastSignInTime
+
+      if (isNewUser) {
+        toast.success("Welcome to HealthPulse!", {
+          description: "Your Google account has been linked successfully."
+        })
+      } else {
+        toast.success("Welcome back!", {
+          description: "You have been signed in with Google."
+        })
       }
     } catch (error: any) {
       setError(error.message)
+      toast.error("Google Sign-In Error", {
+        description: error.message
+      })
     } finally {
       setLoading(false)
     }
@@ -208,6 +232,7 @@ export default function AuthPage() {
           </form>
         </CardContent>
       </Card>
+      <Toaster position="top-right" />
     </div>
   )
 }

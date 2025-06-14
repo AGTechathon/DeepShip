@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { initializeUserInFirestore } from "@/lib/user-initialization"
 import AuthPage from "@/components/auth-page"
 import HomePage from "@/components/home-page"
 import type { User } from "firebase/auth"
@@ -12,7 +13,15 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Ensure user data is initialized in Firestore
+          await initializeUserInFirestore(user)
+        } catch (error) {
+          console.error("Error initializing user data:", error)
+        }
+      }
       setUser(user)
       setLoading(false)
     })
