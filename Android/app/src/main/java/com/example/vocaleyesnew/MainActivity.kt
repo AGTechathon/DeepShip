@@ -206,37 +206,11 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
         }
     }
 
-    // Improved voice recognition monitoring with exponential backoff
+    // Simplified voice recognition setup - let VoiceRecognitionManager handle monitoring
     LaunchedEffect(Unit) {
         // Initial delay to let everything settle
-        delay(3000)
+        delay(2000)
         voiceRecognitionManager.enablePersistentListening()
-
-        // Smart monitoring with exponential backoff to prevent conflicts
-        var consecutiveFailures = 0
-        var lastResetTime = System.currentTimeMillis()
-
-        while (true) {
-            delay(15000) // Check every 15 seconds for better stability
-            val currentTime = System.currentTimeMillis()
-
-            // Reset restart attempts every 5 minutes for long-term stability
-            if (currentTime - lastResetTime > 300000L) { // 5 minutes
-                voiceRecognitionManager.resetRestartAttempts()
-                lastResetTime = currentTime
-                Log.d("MainActivity", "Reset voice recognition restart attempts for long-term stability")
-            }
-
-            if (!voiceRecognitionManager.isCurrentlyListening()) {
-                consecutiveFailures++
-                val backoffDelay = minOf(2000L * consecutiveFailures, 10000L) // Max 10 second backoff
-                Log.d("MainActivity", "Voice recognition not active, restarting after ${backoffDelay}ms (failure #$consecutiveFailures)")
-                delay(backoffDelay)
-                voiceRecognitionManager.enablePersistentListening()
-            } else {
-                consecutiveFailures = 0 // Reset on success
-            }
-        }
     }
 
     Scaffold(

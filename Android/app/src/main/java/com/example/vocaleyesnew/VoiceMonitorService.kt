@@ -33,16 +33,17 @@ class VoiceMonitorService : Service() {
         scope.launch {
             while (true) {
                 try {
-                    // Check every 2 seconds if voice recognition is active
-                    delay(2000)
-                    
+                    // Check every 30 seconds - less aggressive monitoring
+                    delay(30000)
+
+                    // Only restart if voice recognition is completely inactive
                     if (!voiceRecognitionManager.isCurrentlyListening()) {
-                        Log.d("VoiceMonitorService", "Voice recognition inactive, restarting...")
+                        Log.d("VoiceMonitorService", "Voice recognition inactive for extended period, attempting restart...")
                         voiceRecognitionManager.enablePersistentListening()
                     }
                 } catch (e: Exception) {
                     Log.e("VoiceMonitorService", "Error in monitoring: ${e.message}")
-                    delay(5000) // Wait longer on error
+                    delay(60000) // Wait much longer on error (1 minute)
                 }
             }
         }

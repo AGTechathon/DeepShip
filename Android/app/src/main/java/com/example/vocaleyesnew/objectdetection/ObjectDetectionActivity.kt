@@ -55,6 +55,9 @@ import com.example.vocaleyesnew.facerecognition.FaceRecognitionManager
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var camera: Camera? = null
@@ -64,6 +67,7 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
     private var isDetectorInitialized = false
     private lateinit var voiceRecognitionManager: VoiceRecognitionManager
     private lateinit var faceRecognitionManager: FaceRecognitionManager
+    private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     // Add error handling state
     private var errorMessage by mutableStateOf<String?>(null)
@@ -395,26 +399,28 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
 
                                 try {
                                     // First, check for faces in the image
-                                    try {
-                                        val faceResult = faceRecognitionManager.detectFaces(rotatedBitmap)
-                                        if (faceResult.faces.isNotEmpty()) {
-                                            faceResult.faces.forEach { face ->
-                                                val recognitionResult = faceRecognitionManager.recognizeFace(face, "object_detection")
-                                                recognitionResult?.let { result ->
-                                                    if (result.personName != null) {
-                                                        val faceMessage = "I can see ${result.personName} here."
-                                                        voiceRecognitionManager.speak(faceMessage)
-                                                        Log.d("ObjectDetection", "Recognized face: ${result.personName}")
-                                                    } else if (result.isNewFace) {
-                                                        val unknownFaceMessage = "I can see an unknown person here."
-                                                        voiceRecognitionManager.speak(unknownFaceMessage)
-                                                        Log.d("ObjectDetection", "Unknown face detected")
+                                    coroutineScope.launch {
+                                        try {
+                                            val faceResult = faceRecognitionManager.detectFaces(rotatedBitmap)
+                                            if (faceResult.faces.isNotEmpty()) {
+                                                faceResult.faces.forEach { face ->
+                                                    val recognitionResult = faceRecognitionManager.recognizeFace(face, "object_detection")
+                                                    recognitionResult?.let { result ->
+                                                        if (result.personName != null) {
+                                                            val faceMessage = "I can see ${result.personName} here."
+                                                            voiceRecognitionManager.speak(faceMessage)
+                                                            Log.d("ObjectDetection", "Recognized face: ${result.personName}")
+                                                        } else if (result.isNewFace) {
+                                                            val unknownFaceMessage = "I can see an unknown person here."
+                                                            voiceRecognitionManager.speak(unknownFaceMessage)
+                                                            Log.d("ObjectDetection", "Unknown face detected")
+                                                        }
                                                     }
                                                 }
                                             }
+                                        } catch (e: Exception) {
+                                            Log.e("ObjectDetection", "Face recognition error: ${e.message}")
                                         }
-                                    } catch (e: Exception) {
-                                        Log.e("ObjectDetection", "Face recognition error: ${e.message}")
                                     }
 
                                     // Then proceed with object detection
