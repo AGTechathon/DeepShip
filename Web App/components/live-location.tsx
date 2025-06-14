@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import type { User } from "firebase/auth"
 import { ref, set, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { collection, addDoc, query, orderBy, limit, onSnapshot } from "firebase/firestore"
+import { database, firestore } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Play, Square, Navigation, Clock, Satellite } from "lucide-react"
+import { toast } from "sonner"
 
 // Dynamically import the map component to avoid SSR issues
 const LocationMap = dynamic(() => import("@/components/location-map"), {
@@ -33,6 +35,14 @@ interface LocationData {
   lastUpdated: string | null
 }
 
+interface LocationHistoryItem {
+  id?: string
+  lat: number
+  lng: number
+  timestamp: string
+  address?: string
+}
+
 export default function LiveLocation({ user }: LiveLocationProps) {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState<LocationData>({
@@ -41,6 +51,8 @@ export default function LiveLocation({ user }: LiveLocationProps) {
     lastUpdated: "6/14/2025, 5:55:59 PM",
   })
   const [watchId, setWatchId] = useState<number | null>(null)
+  const [locationHistory, setLocationHistory] = useState<LocationHistoryItem[]>([])
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
 
   useEffect(() => {
     // Listen to location updates from Firebase
@@ -55,9 +67,29 @@ export default function LiveLocation({ user }: LiveLocationProps) {
     return () => unsubscribe()
   }, [user.uid])
 
+  // Load location history from Firestore
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const historyRef = collection(firestore, `users/${user.uid}/locationHistory`)
+    const historyQuery = query(historyRef, orderBy("timestamp", "desc"), limit(10))
+
+    const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
+      const history: LocationHistoryItem[] = []
+      snapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() } as LocationHistoryItem)
+      })
+      setLocationHistory(history)
+    })
+
+    return () => unsubscribe()
+  }, [user?.uid])
+
   const startTracking = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by this browser.")
+      toast.error("Geolocation not supported", {
+        description: "Your browser doesn't support location tracking.",
+      })
       return
     }
 
@@ -84,12 +116,17 @@ export default function LiveLocation({ user }: LiveLocationProps) {
 
     const error = (err: GeolocationPositionError) => {
       console.error("Error getting location:", err)
-      alert("Error getting your location. Please check your permissions.")
+      toast.error("Location tracking error", {
+        description: "Please check your permissions and try again.",
+      })
     }
 
     const id = navigator.geolocation.watchPosition(success, error, options)
     setWatchId(id)
     setIsTracking(true)
+    toast.success("Location tracking started", {
+      description: "Your location will be updated automatically.",
+    })
   }
 
   const stopTracking = () => {
@@ -98,6 +135,92 @@ export default function LiveLocation({ user }: LiveLocationProps) {
       setWatchId(null)
     }
     setIsTracking(false)
+    toast.info("Location tracking stopped", {
+      description: "Automatic location updates have been disabled.",
+    })
+  }
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation not supported", {
+        description: "Your browser doesn't support location tracking.",
+      })
+      return
+    }
+
+    setIsGettingLocation(true)
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+
+    const success = async (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords
+      const timestamp = new Date().toISOString()
+
+      const locationData = {
+        lat: latitude,
+        lng: longitude,
+        lastUpdated: timestamp,
+      }
+
+      try {
+        // Update current location in Realtime Database
+        const locationRef = ref(database, `users/${user.uid}/liveLocation`)
+        await set(locationRef, locationData)
+
+        // Store in Firestore for history
+        const historyRef = collection(firestore, `users/${user.uid}/locationHistory`)
+        await addDoc(historyRef, {
+          lat: latitude,
+          lng: longitude,
+          timestamp: timestamp,
+          address: `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+        })
+
+        setLocation(locationData)
+        setIsGettingLocation(false)
+
+        // Show success message
+        toast.success("Location saved successfully!", {
+          description: `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+        })
+
+      } catch (error) {
+        console.error("Error saving location:", error)
+        toast.error("Error saving location", {
+          description: "Please try again. Check your internet connection.",
+        })
+        setIsGettingLocation(false)
+      }
+    }
+
+    const error = (err: GeolocationPositionError) => {
+      console.error("Error getting location:", err)
+      setIsGettingLocation(false)
+
+      let errorMessage = "Error getting your location"
+      let description = ""
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          description = "Please allow location access and try again."
+          break
+        case err.POSITION_UNAVAILABLE:
+          description = "Location information is unavailable."
+          break
+        case err.TIMEOUT:
+          description = "Location request timed out."
+          break
+        default:
+          description = "An unknown error occurred."
+          break
+      }
+      toast.error(errorMessage, { description })
+    }
+
+    navigator.geolocation.getCurrentPosition(success, error, options)
   }
 
   const formatCoordinate = (coord: number | null) => {
@@ -150,9 +273,23 @@ export default function LiveLocation({ user }: LiveLocationProps) {
                 Stop Tracking
               </Button>
             )}
-            <Button variant="outline" className="flex items-center gap-2">
-              <Satellite className="h-4 w-4" />
-              Get Current Location
+            <Button
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {isGettingLocation ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                  Getting Location...
+                </>
+              ) : (
+                <>
+                  <Satellite className="h-4 w-4" />
+                  Get Current Location
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -237,35 +374,51 @@ export default function LiveLocation({ user }: LiveLocationProps) {
       {/* Location History */}
       <Card>
         <CardHeader>
-          <CardTitle>Location History</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Location History</span>
+            {locationHistory.length > 0 && (
+              <Badge variant="outline" className="ml-2">
+                {locationHistory.length} saved
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {location.lastUpdated ? (
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <MapPin className="h-4 w-4 text-blue-600" />
+            {locationHistory.length > 0 ? (
+              locationHistory.map((historyItem, index) => (
+                <div key={historyItem.id || index} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">
+                        {index === 0 ? "Latest Location" : `Location ${index + 1}`}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {historyItem.lat.toFixed(6)}, {historyItem.lng.toFixed(6)}
+                      </p>
+                      {historyItem.address && (
+                        <p className="text-xs text-gray-500">{historyItem.address}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold">Current Location</p>
-                    <p className="text-sm text-gray-600">
-                      {formatCoordinate(location.lat)}, {formatCoordinate(location.lng)}
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">
+                      {formatLastUpdated(historyItem.timestamp)}
                     </p>
+                    <Badge variant={index === 0 ? "default" : "secondary"} className="mt-1">
+                      {index === 0 ? "Latest" : "Saved"}
+                    </Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">{formatLastUpdated(location.lastUpdated)}</p>
-                  <Badge variant="secondary" className="mt-1">
-                    Active
-                  </Badge>
-                </div>
-              </div>
+              ))
             ) : (
               <div className="text-center py-8">
                 <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No location history available</p>
-                <p className="text-sm text-gray-500">Start tracking to build your location history</p>
+                <p className="text-sm text-gray-500">Click "Get Current Location" to start building your location history</p>
               </div>
             )}
           </div>

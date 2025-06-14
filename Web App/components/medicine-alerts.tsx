@@ -31,6 +31,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
   const [alerts, setAlerts] = useState<MedicineAlert[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isAddingAlert, setIsAddingAlert] = useState(false)
   const [firebaseError, setFirebaseError] = useState<string | null>(null)
   const [newAlert, setNewAlert] = useState({
     name: "",
@@ -151,21 +152,60 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
 
   const testFirebaseConnection = async () => {
     try {
-      console.log("Testing Firebase connection...")
+      console.log("=== Testing Firebase Connection ===")
       console.log("User:", user?.uid)
+      console.log("User email:", user?.email)
       console.log("Database:", database)
+      console.log("Database URL:", process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL)
 
       if (!user?.uid) {
         toast.error("No user authenticated")
         return
       }
 
+      if (!database) {
+        toast.error("Database not initialized")
+        return
+      }
+
+      // Test basic write
       const testRef = ref(database, `users/${user.uid}/test`)
-      await set(testRef, { timestamp: Date.now() })
-      toast.success("Firebase connection working!")
-    } catch (error) {
+      await set(testRef, {
+        timestamp: Date.now(),
+        message: "Test connection successful"
+      })
+
+      // Test medicine alerts path
+      const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+      const testAlertRef = push(alertsRef)
+      await set(testAlertRef, {
+        name: "Test Medicine",
+        time: "12:00",
+        dosage: "1 tablet",
+        status: "upcoming",
+        date: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
+        isTest: true
+      })
+
+      toast.success("Firebase connection working!", {
+        description: "Both test write and medicine alert path are accessible"
+      })
+    } catch (error: any) {
       console.error("Firebase test failed:", error)
-      toast.error(`Firebase test failed: ${error}`)
+      console.error("Error code:", error.code)
+      console.error("Error message:", error.message)
+
+      let errorMessage = "Firebase test failed"
+      if (error.code === "PERMISSION_DENIED") {
+        errorMessage = "Permission denied - check Firebase database rules"
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`
+      }
+
+      toast.error(errorMessage, {
+        description: "Check console for detailed error information"
+      })
     }
   }
 
@@ -200,9 +240,21 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     console.log("Add Alert button clicked!")
     console.log("New Alert data:", newAlert)
     console.log("User:", user?.uid)
+    console.log("Database:", database)
 
-    if (!newAlert.name || !newAlert.time || !newAlert.dosage) {
-      toast.error("Please fill in all fields")
+    // Validate form fields
+    if (!newAlert.name.trim()) {
+      toast.error("Please enter medicine name")
+      return
+    }
+
+    if (!newAlert.time) {
+      toast.error("Please select time")
+      return
+    }
+
+    if (!newAlert.dosage.trim()) {
+      toast.error("Please enter dosage")
       return
     }
 
@@ -211,32 +263,65 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       return
     }
 
+    if (!database) {
+      toast.error("Database not initialized")
+      return
+    }
+
+    setIsAddingAlert(true)
+
     try {
       console.log("Attempting to save to Firebase...")
+
+      // Test database connection first
+      const testRef = ref(database, `users/${user.uid}/test`)
+      await set(testRef, { timestamp: Date.now() })
+      console.log("Database connection test successful")
+
       const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
       const newAlertRef = push(alertsRef)
 
       const alert = {
-        name: newAlert.name,
+        name: newAlert.name.trim(),
         time: newAlert.time,
-        dosage: newAlert.dosage,
+        dosage: newAlert.dosage.trim(),
         status: "upcoming" as const,
         date: new Date().toISOString().split("T")[0],
         createdAt: Date.now(),
       }
 
       console.log("Alert to save:", alert)
+      console.log("Saving to path:", `users/${user.uid}/medicineAlerts`)
+
       await set(newAlertRef, alert)
       console.log("Alert saved successfully!")
 
+      // Reset form and close dialog
       setNewAlert({ name: "", time: "", dosage: "" })
       setIsAddDialogOpen(false)
-      toast.success("Medicine alert added successfully!")
+      setIsAddingAlert(false)
+
+      toast.success("Medicine alert added successfully!", {
+        description: `${alert.name} scheduled for ${alert.time}`,
+      })
     } catch (error: any) {
       console.error("Error adding alert:", error)
       console.error("Error code:", error.code)
       console.error("Error message:", error.message)
-      toast.error(`Failed to add medicine alert: ${error.message || error}`)
+      console.error("Full error object:", error)
+
+      setIsAddingAlert(false)
+
+      let errorMessage = "Failed to add medicine alert"
+      if (error.code === "PERMISSION_DENIED") {
+        errorMessage = "Permission denied. Please check Firebase database rules."
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`
+      }
+
+      toast.error(errorMessage, {
+        description: "Please try again or contact support if the issue persists.",
+      })
     }
   }
 
@@ -341,7 +426,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
             <DialogHeader>
               <DialogTitle>Add New Medicine Alert</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleAddAlert(); }} className="space-y-4">
               <div>
                 <Label htmlFor="medicine-name">Medicine Name</Label>
                 <Input
@@ -370,14 +455,30 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
                 />
               </div>
               <div className="flex gap-2 pt-4">
-                <Button onClick={handleAddAlert} className="flex-1">
-                  Add Alert
+                <Button
+                  onClick={handleAddAlert}
+                  disabled={isAddingAlert}
+                  className="flex-1"
+                >
+                  {isAddingAlert ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Alert"
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  disabled={isAddingAlert}
+                  className="flex-1"
+                >
                   Cancel
                 </Button>
               </div>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
         </div>
