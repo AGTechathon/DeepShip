@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -161,7 +162,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: AuthViewModel) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isFirstLaunch by remember { mutableStateOf(true) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     val isListening by voiceRecognitionManager.isListeningState.collectAsState()
     val authState by authViewModel.authState.collectAsState()
 
@@ -179,43 +182,26 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
     LaunchedEffect(authState) {
         if (authState is AuthState.Unauthenticated) {
             // User logged out, redirect to login
-            val context = voiceRecognitionManager.getContext()
             val intent = Intent(context, LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             context.startActivity(intent)
         }
     }
 
-    // Monitor auth state for logout
-    LaunchedEffect(authState) {
-        if (authState is AuthState.Unauthenticated) {
-            // User logged out, redirect to login
-            val context = voiceRecognitionManager.getContext()
-            val intent = Intent(context, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            context.startActivity(intent)
-        }
-    }
-
-    // Ensure voice recognition stays active with aggressive monitoring
+    // Ensure voice recognition stays active with gentle monitoring
     LaunchedEffect(Unit) {
+        // Initial delay to let everything settle
+        delay(2000)
         voiceRecognitionManager.enablePersistentListening()
 
-        // Very aggressive monitoring - check every 1 second
+        // Gentle monitoring - check every 10 seconds to avoid rapid on/off
         while (true) {
-            delay(1000) // Check every 1 second
+            delay(10000) // Check every 10 seconds for stability
             if (!voiceRecognitionManager.isCurrentlyListening()) {
-                Log.d("MainActivity", "Voice recognition not active, forcing immediate restart")
+                Log.d("MainActivity", "Voice recognition not active, restarting gently")
+                delay(2000) // Wait 2 seconds before restarting to avoid rapid cycling
                 voiceRecognitionManager.enablePersistentListening()
             }
-        }
-    }
-
-    // Additional monitoring for microphone state
-    LaunchedEffect(isListening) {
-        if (!isListening && voiceRecognitionManager.isCurrentlyListening()) {
-            Log.d("MainActivity", "Microphone state mismatch detected, forcing restart")
-            voiceRecognitionManager.enablePersistentListening()
         }
     }
 
@@ -253,11 +239,7 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
 
                     // Logout button
                     IconButton(
-                        onClick = {
-                            scope.launch {
-                                authViewModel.signOut()
-                            }
-                        }
+                        onClick = { showLogoutDialog = true }
                     ) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
@@ -291,45 +273,31 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
             )
 
             FeatureButton("Object Detection") {
-                scope.launch {
-                    voiceRecognitionManager.speak("Opening object detection") {
-                        val context = voiceRecognitionManager.getContext()
-                        context.startActivity(Intent(context, ObjectDetectionActivity::class.java))
-                    }
+                voiceRecognitionManager.speak("Opening object detection") {
+                    context.startActivity(Intent(context, ObjectDetectionActivity::class.java))
                 }
             }
 
             FeatureButton("Navigation") {
-                scope.launch {
-                    voiceRecognitionManager.speak("Opening navigation") {
-                        val context = voiceRecognitionManager.getContext()
-                        context.startActivity(Intent(context, NavigationActivity::class.java))
-                    }
+                voiceRecognitionManager.speak("Opening navigation") {
+                    context.startActivity(Intent(context, NavigationActivity::class.java))
                 }
             }
 
             FeatureButton("Face Recognition") {
-                scope.launch {
-                    voiceRecognitionManager.speak("Opening face recognition")
-                    // TODO: Launch face recognition activity
-                }
+                voiceRecognitionManager.speak("Opening face recognition")
+                // TODO: Launch face recognition activity
             }
 
             FeatureButton("Book Reading") {
-                scope.launch {
-                    voiceRecognitionManager.speak("Opening book reading") {
-                        val context = voiceRecognitionManager.getContext()
-                        context.startActivity(Intent(context, TextExtractionActivity::class.java))
-                    }
+                voiceRecognitionManager.speak("Opening book reading") {
+                    context.startActivity(Intent(context, TextExtractionActivity::class.java))
                 }
             }
 
             FeatureButton("AI Assistant") {
-                scope.launch {
-                    voiceRecognitionManager.speak("Opening AI Assistant") {
-                        val context = voiceRecognitionManager.getContext()
-                        context.startActivity(Intent(context, ChatActivity::class.java))
-                    }
+                voiceRecognitionManager.speak("Opening AI Assistant") {
+                    context.startActivity(Intent(context, ChatActivity::class.java))
                 }
             }
 
@@ -342,6 +310,34 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    // Logout confirmation dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Logout") },
+            text = { Text("Are you sure you want to logout?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        scope.launch {
+                            authViewModel.signOut()
+                        }
+                    }
+                ) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

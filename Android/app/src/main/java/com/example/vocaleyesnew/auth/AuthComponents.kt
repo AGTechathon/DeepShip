@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -134,7 +135,7 @@ fun AuthButton(
                 contentDescription = "Loading",
                 modifier = Modifier
                     .size(20.dp)
-                    .graphicsLayer { rotationZ = rotation }
+                    .rotate(rotation)
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
