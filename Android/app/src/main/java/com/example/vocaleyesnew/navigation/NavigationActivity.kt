@@ -9,17 +9,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
 import com.example.vocaleyesnew.VoiceRecognitionManager
-import com.example.vocaleyesnew.facerecognition.FaceRecognitionManager
+
 
 class NavigationActivity : ComponentActivity() {
     private lateinit var voiceRecognitionManager: VoiceRecognitionManager
-    private lateinit var faceRecognitionManager: FaceRecognitionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
         voiceRecognitionManager.setCurrentActivity(this)
-        faceRecognitionManager = FaceRecognitionManager(this)
         setupVoiceCommands()
 
         setContent {
@@ -29,7 +27,6 @@ class NavigationActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     BlindModeScreen(
-                        faceRecognitionManager = faceRecognitionManager,
                         voiceRecognitionManager = voiceRecognitionManager
                     )
                 }

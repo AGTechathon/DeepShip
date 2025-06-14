@@ -41,6 +41,8 @@ fun CameraPreviewWithAnalysis(
 
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setTargetResolution(android.util.Size(640, 480)) // Set a reasonable resolution
+                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888) // Ensure YUV format
                         .build()
                         .also {
                             it.setAnalyzer(executor, ImageAnalyzer(onImageAnalyzed))

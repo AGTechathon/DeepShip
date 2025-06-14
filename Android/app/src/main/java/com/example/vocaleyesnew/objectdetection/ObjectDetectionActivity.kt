@@ -51,7 +51,7 @@ import com.example.vocaleyesnew.objectdetection.Constants.MODEL_PATH
 import com.example.vocaleyesnew.ui.theme.BoundingBoxColor
 import com.example.vocaleyesnew.ui.theme.YOLOv8Theme
 import com.example.vocaleyesnew.VoiceRecognitionManager
-import com.example.vocaleyesnew.facerecognition.FaceRecognitionManager
+
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -66,7 +66,7 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
     private lateinit var cameraExecutor: ExecutorService
     private var isDetectorInitialized = false
     private lateinit var voiceRecognitionManager: VoiceRecognitionManager
-    private lateinit var faceRecognitionManager: FaceRecognitionManager
+
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     // Add error handling state
@@ -111,7 +111,7 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
         cameraExecutor = Executors.newSingleThreadExecutor()
         voiceRecognitionManager = VoiceRecognitionManager.getInstance(this)
         voiceRecognitionManager.setCurrentActivity(this)
-        faceRecognitionManager = FaceRecognitionManager(this)
+
         setupVoiceCommands()
 
         try {
@@ -398,32 +398,7 @@ class ObjectDetectionActivity : ComponentActivity(), TextToSpeech.OnInitListener
                                 )
 
                                 try {
-                                    // First, check for faces in the image
-                                    coroutineScope.launch {
-                                        try {
-                                            val faceResult = faceRecognitionManager.detectFaces(rotatedBitmap)
-                                            if (faceResult.faces.isNotEmpty()) {
-                                                faceResult.faces.forEach { face ->
-                                                    val recognitionResult = faceRecognitionManager.recognizeFace(face, "object_detection")
-                                                    recognitionResult?.let { result ->
-                                                        if (result.personName != null) {
-                                                            val faceMessage = "I can see ${result.personName} here."
-                                                            voiceRecognitionManager.speak(faceMessage)
-                                                            Log.d("ObjectDetection", "Recognized face: ${result.personName}")
-                                                        } else if (result.isNewFace) {
-                                                            val unknownFaceMessage = "I can see an unknown person here."
-                                                            voiceRecognitionManager.speak(unknownFaceMessage)
-                                                            Log.d("ObjectDetection", "Unknown face detected")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            Log.e("ObjectDetection", "Face recognition error: ${e.message}")
-                                        }
-                                    }
-
-                                    // Then proceed with object detection
+                                    // Proceed with object detection
                                     detector.detect(rotatedBitmap)
                                 } finally {
                                     rotatedBitmap.recycle()

@@ -38,7 +38,7 @@ import com.example.vocaleyesnew.objectdetection.ObjectDetectionActivity
 import com.example.vocaleyesnew.textextraction.TextExtractionActivity
 import com.example.vocaleyesnew.chat.ChatActivity
 import com.example.vocaleyesnew.navigation.NavigationActivity
-import com.example.vocaleyesnew.facerecognition.FaceRecognitionActivity
+
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -135,12 +135,7 @@ class MainActivity : ComponentActivity() {
                         }
                         true
                     }
-                    command.contains("face") || command.contains("recognition") -> {
-                        speak("Opening face recognition") {
-                            startActivity(Intent(this@MainActivity, FaceRecognitionActivity::class.java))
-                        }
-                        true
-                    }
+
                     command.contains("book") || command.contains("reading") || command.contains("text") || command.contains("read") -> {
                         speak("Opening book reading") {
                             startActivity(Intent(this@MainActivity, TextExtractionActivity::class.java))
@@ -160,7 +155,7 @@ class MainActivity : ComponentActivity() {
                         true
                     }
                     command.contains("help") || command.contains("options") || command.contains("commands") -> {
-                        speak("Available commands are: test, object detection, navigation, face recognition, book reading, currency reader, and AI assistant. Say go back to return to previous screen, or go home to return to main menu.")
+                        speak("Available commands are: test, object detection, navigation, book reading, currency reader, and AI assistant. Say go back to return to previous screen, or go home to return to main menu.")
                         true
                     }
                     else -> false // Command not handled
@@ -302,14 +297,7 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                 }
             }
 
-            FeatureButton(
-                text = "Face Recognition",
-                description = "Face Recognition feature. Identifies and recognizes faces in your camera view. Say 'face recognition' or tap to open."
-            ) {
-                voiceRecognitionManager.speak("Opening face recognition") {
-                    context.startActivity(Intent(context, FaceRecognitionActivity::class.java))
-                }
-            }
+
 
             FeatureButton(
                 text = "Book Reading",

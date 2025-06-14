@@ -29,50 +29,7 @@ data class UserPreferences(
     val theme: String = "system"
 )
 
-/**
- * Registered Face document structure in Firestore
- * Collection: users/{userId}/RegisteredFaces/{faceId}
- */
-data class RegisteredFace(
-    @DocumentId
-    val faceId: String = "",
-    val personName: String = "",
-    val faceEmbedding: String = "", // JSON string of face features/landmarks
-    val confidence: Float = 0.0f,
-    val imagePath: String? = null, // Optional path to stored face image
-    @ServerTimestamp
-    val dateAdded: Timestamp? = null,
-    val isActive: Boolean = true,
-    val metadata: FaceMetadata = FaceMetadata()
-)
 
-/**
- * Face metadata nested object
- */
-data class FaceMetadata(
-    val detectionMethod: String = "mlkit", // "mlkit", "manual", etc.
-    val deviceInfo: String = "",
-    val appVersion: String = "",
-    val qualityScore: Float = 0.0f,
-    val landmarks: Map<String, Any> = emptyMap()
-)
-
-/**
- * Face Recognition Event - for logging recognition events
- * Collection: users/{userId}/FaceRecognitionEvents/{eventId}
- */
-data class FaceRecognitionEvent(
-    @DocumentId
-    val eventId: String = "",
-    val recognizedPersonName: String? = null,
-    val confidence: Float = 0.0f,
-    val isNewFace: Boolean = false,
-    val detectionContext: String = "", // "navigation", "object_detection", "face_recognition"
-    @ServerTimestamp
-    val timestamp: Timestamp? = null,
-    val location: String? = null,
-    val deviceInfo: String = ""
-)
 
 /**
  * User Profile document for additional user information
