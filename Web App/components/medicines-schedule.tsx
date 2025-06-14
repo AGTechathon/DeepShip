@@ -166,7 +166,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
               status = existingDaily.status
               takenAt = existingDaily.takenAt
             } else {
-              // Check if time has passed for today's medicines
+              // Check if grace period has passed for today's medicines
               const now = new Date()
               const isToday = dateString === now.toISOString().split('T')[0]
 
@@ -175,7 +175,11 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
                 const medicineTime = new Date()
                 medicineTime.setHours(hours, minutes, 0, 0)
 
-                if (now > medicineTime) {
+                // Add 30-minute grace period before marking as missed
+                const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+                const missedThreshold = medicineTime.getTime() + gracePeriodMs
+
+                if (now.getTime() > missedThreshold) {
                   status = "missed"
                 }
               }
@@ -200,6 +204,54 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
     return () => unsubscribe()
   }, [schedules, user?.uid])
+
+  // Auto-update missed medicines (with 30-minute grace period)
+  useEffect(() => {
+    const updateMissedMedicines = async () => {
+      if (!user?.uid || dailyMedicines.length === 0) return
+
+      const today = new Date().toISOString().split('T')[0]
+      const now = new Date()
+
+      for (const medicine of dailyMedicines) {
+        // Only check medicines that are still "upcoming" and for today
+        if (medicine.status === "upcoming" && medicine.date === today) {
+          const [hours, minutes] = medicine.time.split(':').map(Number)
+          const medicineTime = new Date()
+          medicineTime.setHours(hours, minutes, 0, 0)
+
+          // Add 30-minute grace period before marking as missed
+          const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+          const missedThreshold = medicineTime.getTime() + gracePeriodMs
+
+          // Only mark as missed if grace period has passed
+          if (now.getTime() > missedThreshold) {
+            try {
+              // Check if this is a generated medicine (needs new record) or existing record
+              if (medicine.id.includes('-') && !medicine.id.startsWith('daily_')) {
+                // Create new daily medicine record with missed status
+                const dailyMedicine = {
+                  scheduleId: medicine.scheduleId,
+                  date: medicine.date,
+                  status: "missed"
+                }
+                await addDoc(collection(firestore, `users/${user.uid}/daily_medicines`), dailyMedicine)
+              } else {
+                // Update existing daily medicine record
+                const medicineRef = doc(firestore, `users/${user.uid}/daily_medicines`, medicine.id)
+                await updateDoc(medicineRef, { status: "missed" })
+              }
+            } catch (error) {
+              console.error("Error updating missed medicine:", error)
+            }
+          }
+        }
+      }
+    }
+
+    const interval = setInterval(updateMissedMedicines, 60000) // Check every minute
+    return () => clearInterval(interval)
+  }, [dailyMedicines, user?.uid])
 
   const handleAddSchedule = async () => {
     if (!newSchedule.name || !newSchedule.time || !newSchedule.dosage || newSchedule.days.length === 0) {
@@ -326,6 +378,49 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
       console.error("Error updating medicine status:", error)
       toast.error(`Failed to update medicine status: ${error.message}`)
     }
+  }
+
+  // Helper function to check if medicine is for today
+  const isToday = (dateString: string) => {
+    const today = new Date().toISOString().split('T')[0]
+    return dateString === today
+  }
+
+  // Helper function to check if medicine time has passed
+  const isTimePassed = (timeString: string) => {
+    const now = new Date()
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const medicineTime = new Date()
+    medicineTime.setHours(hours, minutes, 0, 0)
+    return now > medicineTime
+  }
+
+  // Helper function to check if grace period has passed (30 minutes after scheduled time)
+  const isGracePeriodPassed = (timeString: string) => {
+    const now = new Date()
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const medicineTime = new Date()
+    medicineTime.setHours(hours, minutes, 0, 0)
+
+    const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+    const missedThreshold = medicineTime.getTime() + gracePeriodMs
+
+    return now.getTime() > missedThreshold
+  }
+
+  // Helper function to get the actual status of a medicine (considering time passed with grace period)
+  const getActualStatus = (medicine: DailyMedicine) => {
+    // If already taken or explicitly missed, return as is
+    if (medicine.status === "taken" || medicine.status === "missed") {
+      return medicine.status
+    }
+
+    // If it's upcoming but for today and grace period has passed, it's missed
+    if (medicine.status === "upcoming" && isToday(medicine.date) && isGracePeriodPassed(medicine.time)) {
+      return "missed"
+    }
+
+    return medicine.status
   }
 
   const getStatusColor = (status: string) => {
@@ -474,9 +569,9 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         {(() => {
           const today = new Date().toISOString().split('T')[0]
           const todaysMedicines = dailyMedicines.filter(med => med.date === today)
-          const upcomingCount = todaysMedicines.filter(med => med.status === "upcoming").length
-          const takenCount = todaysMedicines.filter(med => med.status === "taken").length
-          const missedCount = todaysMedicines.filter(med => med.status === "missed").length
+          const upcomingCount = todaysMedicines.filter(med => getActualStatus(med) === "upcoming").length
+          const takenCount = todaysMedicines.filter(med => getActualStatus(med) === "taken").length
+          const missedCount = todaysMedicines.filter(med => getActualStatus(med) === "missed").length
 
           if (todaysMedicines.length > 0) {
             return (
@@ -521,33 +616,36 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
               const dayMedicines = getMedicinesForDay(day.dayName, day.date.toISOString().split('T')[0])
               return (
                 <div key={index} className="space-y-1 min-h-[120px]">
-                  {dayMedicines.map((medicine) => (
-                    <div
-                      key={medicine.id}
-                      className={`p-2 border rounded text-xs relative ${getStatusColor(medicine.status)}`}
-                    >
-                      <div className="font-medium truncate">{medicine.name}</div>
-                      <div className="text-xs">{medicine.time}</div>
-                      <div className="text-xs">{medicine.dosage}</div>
-                      <div className="flex items-center justify-between mt-1">
-                        <div className="flex items-center gap-1">
-                          {getStatusIcon(medicine.status)}
-                          <span className="text-xs capitalize">{medicine.status}</span>
+                  {dayMedicines.map((medicine) => {
+                    const actualStatus = getActualStatus(medicine)
+                    return (
+                      <div
+                        key={medicine.id}
+                        className={`p-2 border rounded text-xs relative ${getStatusColor(actualStatus)}`}
+                      >
+                        <div className="font-medium truncate">{medicine.name}</div>
+                        <div className="text-xs">{medicine.time}</div>
+                        <div className="text-xs">{medicine.dosage}</div>
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center gap-1">
+                            {getStatusIcon(actualStatus)}
+                            <span className="text-xs capitalize">{actualStatus}</span>
+                          </div>
+                          {medicine.status === "upcoming" && isToday(medicine.date) && !isGracePeriodPassed(medicine.time) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-4 w-4 p-0 hover:bg-green-200"
+                              onClick={() => markMedicineAsTaken(medicine)}
+                              title="Mark as taken"
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
-                        {medicine.status === "upcoming" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-4 w-4 p-0 hover:bg-green-200"
-                            onClick={() => markMedicineAsTaken(medicine)}
-                            title="Mark as taken"
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )
             })}
