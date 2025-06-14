@@ -23,8 +23,8 @@ class AuthRepository(private val context: Context) {
     
     companion object {
         private const val TAG = "AuthRepository"
-        // Replace with your actual web client ID from Google Cloud Console
-        private const val WEB_CLIENT_ID = "your-web-client-id.googleusercontent.com"
+        // Web client ID from google-services.json
+        private const val WEB_CLIENT_ID = "391075985944-la8ap07i6bb0mep088366qnf24033uss.apps.googleusercontent.com"
     }
 
     /**

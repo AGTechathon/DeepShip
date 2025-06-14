@@ -2,7 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services") version "4.4.0"
+
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -63,9 +65,12 @@ dependencies {
     // Add navigation compose
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // Firebase Authentication
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:33.15.0"))
+
+    // Firebase Authentication - When using the BoM, don't specify versions in Firebase dependencies
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
 
     // Credential Manager for modern authentication

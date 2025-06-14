@@ -23,7 +23,7 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
-            android:name=".auth.LoginActivity"
+            android:name=".auth.SplashActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.VocalEyesNew"
@@ -33,6 +33,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".auth.LoginActivity"
+            android:exported="false"
+            android:label="Sign In"
+            android:theme="@style/Theme.VocalEyesNew"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".auth.SignupActivity"

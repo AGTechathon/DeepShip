@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
@@ -171,6 +172,17 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                 "Welcome to VocalEyes. Voice recognition is always active. You can say: object detection, navigation, face recognition, book reading, or assistant. Say help for options. What would you like to do?",
             )
             isFirstLaunch = false
+        }
+    }
+
+    // Monitor auth state for logout
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Unauthenticated) {
+            // User logged out, redirect to login
+            val context = voiceRecognitionManager.getContext()
+            val intent = Intent(context, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            context.startActivity(intent)
         }
     }
 
