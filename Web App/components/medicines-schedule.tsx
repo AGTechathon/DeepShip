@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Clock, Pill, Check, X, Bell, Trash2, Edit, Calendar } from "lucide-react"
 import { toast } from "sonner"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface MedicinesScheduleProps {
   user: User
@@ -522,6 +523,45 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     return filtered
   }
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const cardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5
+      }
+    }
+  }
+
+  const medicineCardVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.3
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -531,16 +571,32 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Medicines Schedule</CardTitle>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Medicine
-            </Button>
-          </DialogTrigger>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <motion.div
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <CardTitle className="text-lg">Medicines Schedule</CardTitle>
+          </motion.div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Medicine
+                </Button>
+              </motion.div>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Medicine Schedule</DialogTitle>
@@ -622,29 +678,79 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
           if (todaysMedicines.length > 0) {
             return (
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm">
-                  <div className="flex items-center justify-center mb-2">
+              <motion.div
+                className="grid grid-cols-3 gap-4 mb-6"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div
+                  className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center justify-center mb-2"
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
                     <Clock className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="text-2xl font-bold text-blue-700">{upcomingCount}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold text-blue-700"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.3, type: "spring" }}
+                  >
+                    {upcomingCount}
+                  </motion.div>
                   <div className="text-sm text-blue-600 font-medium">Upcoming</div>
-                </div>
-                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm">
-                  <div className="flex items-center justify-center mb-2">
+                </motion.div>
+                <motion.div
+                  className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center justify-center mb-2"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
                     <Check className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div className="text-2xl font-bold text-green-700">{takenCount}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold text-green-700"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4, type: "spring" }}
+                  >
+                    {takenCount}
+                  </motion.div>
                   <div className="text-sm text-green-600 font-medium">Taken</div>
-                </div>
-                <div className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 shadow-sm">
-                  <div className="flex items-center justify-center mb-2">
+                </motion.div>
+                <motion.div
+                  className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 shadow-sm"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center justify-center mb-2"
+                    animate={{ rotate: [0, -10, 10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
                     <X className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div className="text-2xl font-bold text-red-700">{missedCount}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold text-red-700"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: "spring" }}
+                  >
+                    {missedCount}
+                  </motion.div>
                   <div className="text-sm text-red-600 font-medium">Missed</div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             )
           }
           return null
@@ -657,102 +763,188 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
           if (todaysMedicines.length > 0) {
             return (
-              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
+              <motion.div
+                className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <motion.h4
+                  className="font-semibold text-gray-900 mb-3 flex items-center gap-2"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </motion.div>
                   Today's Medicines
-                </h4>
-                <div className="space-y-2">
-                  {todaysMedicines.map((medicine) => {
+                </motion.h4>
+                <motion.div
+                  className="space-y-2"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  {todaysMedicines.map((medicine, index) => {
                     const actualStatus = getActualStatus(medicine)
                     return (
-                      <div key={medicine.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                      <motion.div
+                        key={medicine.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border"
+                        variants={medicineCardVariants}
+                        whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                        custom={index}
+                      >
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${getStatusColor(actualStatus).split(' ')[0]} ${getStatusColor(actualStatus).split(' ')[1]}`}>
+                          <motion.div
+                            className={`p-2 rounded-full ${getStatusColor(actualStatus).split(' ')[0]} ${getStatusColor(actualStatus).split(' ')[1]}`}
+                            whileHover={{ rotate: 360 }}
+                            transition={{ duration: 0.5 }}
+                          >
                             {getStatusIcon(actualStatus)}
-                          </div>
+                          </motion.div>
                           <div>
                             <div className="font-medium text-sm">{medicine.name}</div>
                             <div className="text-xs text-gray-500">{medicine.time} • {medicine.dosage}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant={actualStatus === "upcoming" ? "default" : "outline"}
-                            onClick={() => markMedicineAsUpcoming(medicine)}
-                            className="text-xs px-2 py-1 h-7"
-                          >
-                            Upcoming
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={actualStatus === "taken" ? "default" : "outline"}
-                            onClick={() => markMedicineAsTaken(medicine)}
-                            className="text-xs px-2 py-1 h-7 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            Taken
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={actualStatus === "missed" ? "default" : "outline"}
-                            onClick={() => markMedicineAsMissed(medicine)}
-                            className="text-xs px-2 py-1 h-7 bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Missed
-                          </Button>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              size="sm"
+                              variant={actualStatus === "upcoming" ? "default" : "outline"}
+                              onClick={() => markMedicineAsUpcoming(medicine)}
+                              className="text-xs px-2 py-1 h-7"
+                            >
+                              Upcoming
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              size="sm"
+                              variant={actualStatus === "taken" ? "default" : "outline"}
+                              onClick={() => markMedicineAsTaken(medicine)}
+                              className="text-xs px-2 py-1 h-7 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              Taken
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              size="sm"
+                              variant={actualStatus === "missed" ? "default" : "outline"}
+                              onClick={() => markMedicineAsMissed(medicine)}
+                              className="text-xs px-2 py-1 h-7 bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Missed
+                            </Button>
+                          </motion.div>
                         </div>
-                      </div>
+                      </motion.div>
                     )
                   })}
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             )
           }
           return null
         })()}
 
         {/* Weekly Calendar View */}
-        <div className="space-y-4">
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
           {/* Days Header */}
-          <div className="grid grid-cols-7 gap-2">
+          <motion.div
+            className="grid grid-cols-7 gap-2"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {getWeekDates().map((day, index) => (
-              <div key={index} className={`text-center p-3 rounded-lg border ${
-                day.isToday ? 'bg-purple-100 border-purple-300' : 'bg-gray-50'
-              }`}>
+              <motion.div
+                key={index}
+                className={`text-center p-3 rounded-lg border ${
+                  day.isToday ? 'bg-purple-100 border-purple-300' : 'bg-gray-50'
+                }`}
+                variants={cardVariants}
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
                 <div className="text-xs font-medium text-gray-600">{day.dayShort}</div>
-                <div className={`text-lg font-bold ${day.isToday ? 'text-purple-600' : 'text-gray-900'}`}>
+                <motion.div
+                  className={`text-lg font-bold ${day.isToday ? 'text-purple-600' : 'text-gray-900'}`}
+                  animate={day.isToday ? { scale: [1, 1.1, 1] } : {}}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
                   {day.dayNumber}
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           {/* Medicines for each day */}
-          <div className="grid grid-cols-7 gap-3">
+          <motion.div
+            className="grid grid-cols-7 gap-3"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {getWeekDates().map((day, index) => {
               const dayMedicines = getMedicinesForDay(day.dayName, day.date.toISOString().split('T')[0])
               return (
-                <div key={index} className="space-y-2 min-h-[160px] p-2 bg-gray-50 rounded-lg border">
-                  <div className="text-xs font-medium text-gray-600 text-center mb-2">
+                <motion.div
+                  key={index}
+                  className="space-y-2 min-h-[160px] p-2 bg-gray-50 rounded-lg border"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <motion.div
+                    className="text-xs font-medium text-gray-600 text-center mb-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
                     {dayMedicines.length} medicine{dayMedicines.length !== 1 ? 's' : ''}
-                  </div>
-                  {dayMedicines.length === 0 ? (
-                    <div className="flex items-center justify-center h-24 text-gray-400">
-                      <div className="text-center">
-                        <Pill className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                        <div className="text-xs">No medicines</div>
-                      </div>
-                    </div>
-                  ) : (
-                    dayMedicines.map((medicine) => {
-                    const actualStatus = getActualStatus(medicine)
-                    const isCurrentDay = isToday(medicine.date)
-                    return (
-                      <div
-                        key={medicine.id}
-                        className={`p-3 border rounded-lg text-xs relative transition-all hover:shadow-md ${getStatusColor(actualStatus)}`}
+                  </motion.div>
+                  <AnimatePresence>
+                    {dayMedicines.length === 0 ? (
+                      <motion.div
+                        className="flex items-center justify-center h-24 text-gray-400"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
                       >
+                        <div className="text-center">
+                          <motion.div
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <Pill className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                          </motion.div>
+                          <div className="text-xs">No medicines</div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      dayMedicines.map((medicine, medicineIndex) => {
+                      const actualStatus = getActualStatus(medicine)
+                      const isCurrentDay = isToday(medicine.date)
+                      return (
+                        <motion.div
+                          key={medicine.id}
+                          className={`p-3 border rounded-lg text-xs relative transition-all hover:shadow-md ${getStatusColor(actualStatus)}`}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ delay: medicineIndex * 0.1 }}
+                          whileHover={{ scale: 1.05, y: -2 }}
+                        >
                         <div className="font-semibold truncate text-sm mb-1">{medicine.name}</div>
                         <div className="text-xs opacity-75 mb-1">{medicine.time}</div>
                         <div className="text-xs opacity-75 mb-2">{medicine.dosage}</div>
@@ -767,123 +959,185 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
                           {isCurrentDay && (
                             <div className="flex gap-1">
                               {actualStatus !== "taken" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-green-200 rounded-full"
-                                  onClick={() => markMedicineAsTaken(medicine)}
-                                  title="Mark as taken"
-                                >
-                                  <Check className="h-3 w-3 text-green-600" />
-                                </Button>
+                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-green-200 rounded-full"
+                                    onClick={() => markMedicineAsTaken(medicine)}
+                                    title="Mark as taken"
+                                  >
+                                    <Check className="h-3 w-3 text-green-600" />
+                                  </Button>
+                                </motion.div>
                               )}
                               {actualStatus !== "missed" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-red-200 rounded-full"
-                                  onClick={() => markMedicineAsMissed(medicine)}
-                                  title="Mark as missed"
-                                >
-                                  <X className="h-3 w-3 text-red-600" />
-                                </Button>
+                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-red-200 rounded-full"
+                                    onClick={() => markMedicineAsMissed(medicine)}
+                                    title="Mark as missed"
+                                  >
+                                    <X className="h-3 w-3 text-red-600" />
+                                  </Button>
+                                </motion.div>
                               )}
                               {actualStatus !== "upcoming" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-blue-200 rounded-full"
-                                  onClick={() => markMedicineAsUpcoming(medicine)}
-                                  title="Reset to upcoming"
-                                >
-                                  <Clock className="h-3 w-3 text-blue-600" />
-                                </Button>
+                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-blue-200 rounded-full"
+                                    onClick={() => markMedicineAsUpcoming(medicine)}
+                                    title="Reset to upcoming"
+                                  >
+                                    <Clock className="h-3 w-3 text-blue-600" />
+                                  </Button>
+                                </motion.div>
                               )}
                             </div>
                           )}
                         </div>
 
                         {/* Show taken time if medicine was taken */}
-                        {medicine.takenAt && actualStatus === "taken" && (
-                          <div className="text-xs text-green-600 mt-1 opacity-75">
-                            Taken: {medicine.takenAt instanceof Timestamp
-                              ? medicine.takenAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : 'Unknown'}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                  )}
-                </div>
+                        <AnimatePresence>
+                          {medicine.takenAt && actualStatus === "taken" && (
+                            <motion.div
+                              className="text-xs text-green-600 mt-1 opacity-75"
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                            >
+                              Taken: {medicine.takenAt instanceof Timestamp
+                                ? medicine.takenAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                : 'Unknown'}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        </motion.div>
+                      )
+                    })
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               )
             })}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Medicine Schedules List */}
-        <div className="mt-8 space-y-4">
-          <div className="flex items-center justify-between">
+        <motion.div
+          className="mt-8 space-y-4"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.0 }}
+        >
+          <motion.div
+            className="flex items-center justify-between"
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 1.1 }}
+          >
             <h4 className="font-semibold text-gray-900 text-lg">All Medicine Schedules</h4>
-            <div className="text-sm text-gray-500">
+            <motion.div
+              className="text-sm text-gray-500"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 1.2, type: "spring" }}
+            >
               {schedules.length} schedule{schedules.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-          {schedules.length > 0 ? (
-            schedules.map((schedule) => (
-              <div key={schedule.id} className="flex items-center justify-between p-5 border rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl">
-                    <Pill className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-gray-900">{schedule.name}</h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-sm text-gray-600 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {schedule.time}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {schedule.dosage}
-                      </p>
+            </motion.div>
+          </motion.div>
+          <AnimatePresence>
+            {schedules.length > 0 ? (
+              schedules.map((schedule, index) => (
+                <motion.div
+                  key={schedule.id}
+                  className="flex items-center justify-between p-5 border rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ delay: 1.3 + index * 0.1 }}
+                  whileHover={{ scale: 1.02, boxShadow: "0 8px 25px rgba(0,0,0,0.1)" }}
+                >
+                  <div className="flex items-center gap-4">
+                    <motion.div
+                      className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                    >
+                      <Pill className="h-5 w-5 text-purple-600" />
+                    </motion.div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-900">{schedule.name}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <p className="text-sm text-gray-600 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {schedule.time}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {schedule.dosage}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <p className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          {schedule.days.map(day => day.charAt(0).toUpperCase() + day.slice(1, 3)).join(', ')}
+                        </p>
+                        <Badge variant={schedule.status === "active" ? "default" : "secondary"} className="text-xs">
+                          {schedule.status}
+                        </Badge>
+                      </div>
+                      {schedule.notes && (
+                        <p className="text-xs text-gray-500 italic mt-1 bg-gray-50 px-2 py-1 rounded">{schedule.notes}</p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <p className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                        {schedule.days.map(day => day.charAt(0).toUpperCase() + day.slice(1, 3)).join(', ')}
-                      </p>
-                      <Badge variant={schedule.status === "active" ? "default" : "secondary"} className="text-xs">
-                        {schedule.status}
-                      </Badge>
-                    </div>
-                    {schedule.notes && (
-                      <p className="text-xs text-gray-500 italic mt-1 bg-gray-50 px-2 py-1 rounded">{schedule.notes}</p>
-                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(schedule)} className="hover:bg-blue-50">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDeleteSchedule(schedule.id)} className="hover:bg-red-50 text-red-600">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8">
-              <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No medicine schedules yet</p>
-              <Button 
-                className="mt-2 bg-gradient-to-r from-purple-600 to-blue-600" 
-                onClick={() => setIsAddDialogOpen(true)}
+                  <div className="flex items-center gap-2">
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(schedule)} className="hover:bg-blue-50">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteSchedule(schedule.id)} className="hover:bg-red-50 text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <motion.div
+                className="text-center py-8"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 1.3 }}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Medicine
-              </Button>
-            </div>
-          )}
-        </div>
+                <motion.div
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                </motion.div>
+                <p className="text-gray-600">No medicine schedules yet</p>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    className="mt-2 bg-gradient-to-r from-purple-600 to-blue-600"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Medicine
+                  </Button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -958,5 +1212,6 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         </Dialog>
       </CardContent>
     </Card>
+    </motion.div>
   )
 }

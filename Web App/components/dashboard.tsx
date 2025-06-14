@@ -13,6 +13,7 @@ import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "luc
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
+import { motion, AnimatePresence } from "framer-motion"
 
 // Dynamically import the compact map component to avoid SSR issues
 const CompactLocationMap = dynamic(() => import("@/components/compact-location-map"), {
@@ -207,172 +208,480 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     return { status: "Normal", color: "bg-green-500", textColor: "text-green-600" }
   }
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const cardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5
+      }
+    }
+  }
+
+  const numberCountVariants = {
+    hidden: { scale: 0.8, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: {
+        duration: 0.6
+      }
+    }
+  }
+
+  const pulseAnimation = {
+    scale: [1, 1.05, 1],
+    transition: {
+      duration: 1,
+      repeat: Infinity
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        variants={containerVariants}
+      >
         {/* Left Column - Health Stats */}
-        <div className="lg:col-span-2 space-y-6">
+        <motion.div className="lg:col-span-2 space-y-6" variants={cardVariants}>
           {/* Health Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            variants={containerVariants}
+          >
             {/* Steps */}
-            <Card className="relative overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <Footprints className="h-5 w-5 text-blue-600" />
+            <motion.div
+              variants={cardVariants}
+              whileHover={{
+                scale: 1.02,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                transition: { duration: 0.2 }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Card className="relative overflow-hidden h-full">
+                <CardContent className="p-6">
+                  <motion.div
+                    className="flex items-center gap-3 mb-4"
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <motion.div
+                      className="p-2 bg-blue-100 rounded-full"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                    >
+                      <Footprints className="h-5 w-5 text-blue-600" />
+                    </motion.div>
+                    <span className="text-sm font-medium text-gray-600">Steps</span>
+                  </motion.div>
+                  <div className="space-y-2">
+                    <motion.div
+                      className="text-3xl font-bold"
+                      variants={numberCountVariants}
+                      key={fitSteps || 1524}
+                    >
+                      {fitSteps || 1524}
+                    </motion.div>
+                    <motion.div
+                      className="flex items-center gap-2 text-sm text-gray-500"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <span>+100% This day</span>
+                    </motion.div>
                   </div>
-                  <span className="text-sm font-medium text-gray-600">Steps</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold">{fitSteps || 1524}</div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>+100% This day</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Realtime Heart Rate */}
-            <Card className="relative overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-full">
-                      <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500 animate-pulse' : 'text-red-600'}`} />
-                    </div>
-                    <span className="text-sm font-medium text-gray-600">Heart Rate</span>
-                  </div>
-                  <Button
-                    onClick={toggleRealtime}
-                    variant={isRealtimeActive ? "destructive" : "outline"}
-                    size="sm"
-                    className="h-8 px-3 text-xs"
+            <motion.div
+              variants={cardVariants}
+              whileHover={{
+                scale: 1.02,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                transition: { duration: 0.2 }
+              }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Card className="relative overflow-hidden h-full">
+                <CardContent className="p-6">
+                  <motion.div
+                    className="flex items-center justify-between mb-4"
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
                   >
-                    {isRealtimeActive ? "Stop" : "Start"}
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-baseline gap-2">
-                    <div className="text-3xl font-bold text-red-600">{fitHeartRate || currentHeartRate}</div>
-                    <span className="text-sm text-gray-500">BPM</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${getHeartRateStatus(fitHeartRate || currentHeartRate).textColor} border-current`}
+                    <div className="flex items-center gap-3">
+                      <motion.div
+                        className="p-2 bg-red-100 rounded-full"
+                        animate={isRealtimeActive ? pulseAnimation : {}}
+                      >
+                        <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500' : 'text-red-600'}`} />
+                      </motion.div>
+                      <span className="text-sm font-medium text-gray-600">Heart Rate</span>
+                    </div>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
-                    </Badge>
-                    {isRealtimeActive && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                        Live
-                      </div>
-                    )}
+                      <Button
+                        onClick={toggleRealtime}
+                        variant={isRealtimeActive ? "destructive" : "outline"}
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                      >
+                        {isRealtimeActive ? "Stop" : "Start"}
+                      </Button>
+                    </motion.div>
+                  </motion.div>
+                  <div className="space-y-2">
+                    <motion.div
+                      className="flex items-baseline gap-2"
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <motion.div
+                        className="text-3xl font-bold text-red-600"
+                        key={fitHeartRate || currentHeartRate}
+                        initial={{ scale: 1.2 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {fitHeartRate || currentHeartRate}
+                      </motion.div>
+                      <span className="text-sm text-gray-500">BPM</span>
+                    </motion.div>
+                    <motion.div
+                      className="flex items-center gap-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${getHeartRateStatus(fitHeartRate || currentHeartRate).textColor} border-current`}
+                      >
+                        {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
+                      </Badge>
+                      <AnimatePresence>
+                        {isRealtimeActive && (
+                          <motion.div
+                            className="flex items-center gap-1 text-xs text-gray-500"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                          >
+                            <motion.div
+                              className="w-2 h-2 bg-red-500 rounded-full"
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            />
+                            Live
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
 
           {/* Medicines Schedule Section */}
-          <MedicinesSchedule user={user} />
-
-
-        </div>
+          <motion.div
+            variants={cardVariants}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <MedicinesSchedule user={user} />
+          </motion.div>
+        </motion.div>
 
         {/* Right Column - Heart Statistics & 3D Scene */}
-        <div className="space-y-6">
+        <motion.div
+          className="space-y-6"
+          variants={cardVariants}
+        >
           {/* Heart Statistics */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Your Heart Statistic</CardTitle>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </CardHeader>
+          <motion.div
+            variants={cardVariants}
+            whileHover={{
+              scale: 1.01,
+              boxShadow: "0 15px 30px rgba(0,0,0,0.1)",
+              transition: { duration: 0.3 }
+            }}
+          >
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <CardTitle className="text-lg">Your Heart Statistic</CardTitle>
+                </motion.div>
+                <motion.div
+                  whileHover={{ rotate: 90 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              </CardHeader>
             <CardContent>
               {/* Realtime Heart Rate Display */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border">
-                <div className="flex items-center justify-between mb-3">
+              <motion.div
+                className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8 }}
+                whileHover={{ scale: 1.02 }}
+              >
+                <motion.div
+                  className="flex items-center justify-between mb-3"
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.9 }}
+                >
                   <div className="flex items-center gap-2">
-                    <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
+                    <motion.div
+                      animate={isRealtimeActive ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    >
+                      <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500' : 'text-gray-400'}`} />
+                    </motion.div>
                     <span className="font-semibold">Live Heart Rate</span>
                   </div>
-                  <Badge className={getHeartRateStatus(fitHeartRate || currentHeartRate).color}>
-                    {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1, type: "spring" }}
+                  >
+                    <Badge className={getHeartRateStatus(fitHeartRate || currentHeartRate).color}>
+                      {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
+                    </Badge>
+                  </motion.div>
+                </motion.div>
+                <motion.div
+                  className="flex items-center justify-between"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.1 }}
+                >
                   <div>
-                    <div className="text-3xl font-bold text-red-600">{fitHeartRate || currentHeartRate}</div>
+                    <motion.div
+                      className="text-3xl font-bold text-red-600"
+                      key={fitHeartRate || currentHeartRate}
+                      initial={{ scale: 1.3, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      {fitHeartRate || currentHeartRate}
+                    </motion.div>
                     <div className="text-sm text-gray-500">BPM</div>
                   </div>
-                  <Button
-                    onClick={toggleRealtime}
-                    variant={isRealtimeActive ? "destructive" : "default"}
-                    size="sm"
-                    className="flex items-center gap-2"
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <Activity className="h-4 w-4" />
-                    {isRealtimeActive ? "Stop" : "Start"} Live
-                  </Button>
-                </div>
-                {isRealtimeActive && (
-                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    Live monitoring active
-                  </div>
-                )}
-              </div>
+                    <Button
+                      onClick={toggleRealtime}
+                      variant={isRealtimeActive ? "destructive" : "default"}
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <motion.div
+                        animate={isRealtimeActive ? { rotate: 360 } : {}}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Activity className="h-4 w-4" />
+                      </motion.div>
+                      {isRealtimeActive ? "Stop" : "Start"} Live
+                    </Button>
+                  </motion.div>
+                </motion.div>
+                <AnimatePresence>
+                  {isRealtimeActive && (
+                    <motion.div
+                      className="mt-2 text-xs text-gray-500 flex items-center gap-1"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <motion.div
+                        className="w-2 h-2 bg-red-500 rounded-full"
+                        animate={{ scale: [1, 1.5, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      />
+                      Live monitoring active
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
     
 
 
 
               {/* Heart Rate Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="flex items-center gap-1 justify-center mb-1">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <motion.div
+                className="grid grid-cols-3 gap-4 mb-6"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div
+                  className="text-center"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center gap-1 justify-center mb-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.2 }}
+                  >
+                    <motion.div
+                      className="w-2 h-2 bg-purple-500 rounded-full"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
                     <span className="text-xs text-gray-500">Average</span>
-                  </div>
-                  <div className="text-2xl font-bold">{heartRateStats.average}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold"
+                    variants={numberCountVariants}
+                  >
+                    {heartRateStats.average}
+                  </motion.div>
                   <div className="text-xs text-gray-500">BPM</div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center gap-1 justify-center mb-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                </motion.div>
+                <motion.div
+                  className="text-center"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center gap-1 justify-center mb-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.3 }}
+                  >
+                    <motion.div
+                      className="w-2 h-2 bg-blue-500 rounded-full"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
+                    />
                     <span className="text-xs text-gray-500">Minimum</span>
-                  </div>
-                  <div className="text-2xl font-bold">{heartRateStats.minimum}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold"
+                    variants={numberCountVariants}
+                  >
+                    {heartRateStats.minimum}
+                  </motion.div>
                   <div className="text-xs text-gray-500">BPM</div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center gap-1 justify-center mb-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                </motion.div>
+                <motion.div
+                  className="text-center"
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                >
+                  <motion.div
+                    className="flex items-center gap-1 justify-center mb-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.4 }}
+                  >
+                    <motion.div
+                      className="w-2 h-2 bg-green-500 rounded-full"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
+                    />
                     <span className="text-xs text-gray-500">Maximum</span>
-                  </div>
-                  <div className="text-2xl font-bold">{heartRateStats.maximum}</div>
+                  </motion.div>
+                  <motion.div
+                    className="text-2xl font-bold"
+                    variants={numberCountVariants}
+                  >
+                    {heartRateStats.maximum}
+                  </motion.div>
                   <div className="text-xs text-gray-500">BPM</div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
               {/* Heart Rate Chart */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.5 }}
+              >
+                <motion.div
+                  className="flex items-center justify-between mb-4"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 1.6 }}
+                >
                   <h4 className="font-semibold">Heart Rate Trend</h4>
                   <div className="flex items-center gap-2">
-                    {isRealtimeActive && (
-                      <Badge variant="outline" className="text-xs">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                        Live
-                      </Badge>
-                    )}
+                    <AnimatePresence>
+                      {isRealtimeActive && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0 }}
+                        >
+                          <Badge variant="outline" className="text-xs">
+                            <motion.div
+                              className="w-2 h-2 bg-green-500 rounded-full mr-1"
+                              animate={{ scale: [1, 1.5, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            />
+                            Live
+                          </Badge>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <span className="text-xs text-gray-500">Last 8 readings</span>
                   </div>
-                </div>
-                <div className="h-32">
+                </motion.div>
+                <motion.div
+                  className="h-32"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1.7 }}
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={heartRateHistory}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -389,47 +698,105 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             </CardContent>
           </Card>
 
           {/* Live Location Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Live Location
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {fitLocation ? (
-                <div className="space-y-2">
-                  <div className="h-32 rounded-lg overflow-hidden">
-                    <CompactLocationMap
-                      latitude={fitLocation.lat}
-                      longitude={fitLocation.lng}
-                    />
-                  </div>
-                  <div className="text-xs text-gray-500 text-center">
-                    Lat: {fitLocation.lat.toFixed(6)}, Lng: {fitLocation.lng.toFixed(6)}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">Location tracking disabled</p>
-                    <Button variant="link" className="text-blue-600 text-sm">
-                      Enable tracking
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+          <motion.div
+            variants={cardVariants}
+            whileHover={{
+              scale: 1.01,
+              boxShadow: "0 15px 30px rgba(0,0,0,0.1)",
+              transition: { duration: 0.3 }
+            }}
+          >
+            <Card>
+              <CardHeader>
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 1.8 }}
+                >
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <MapPin className="h-5 w-5" />
+                    </motion.div>
+                    Live Location
+                  </CardTitle>
+                </motion.div>
+              </CardHeader>
+              <CardContent>
+                <AnimatePresence mode="wait">
+                  {fitLocation ? (
+                    <motion.div
+                      className="space-y-2"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      key="location-active"
+                    >
+                      <motion.div
+                        className="h-32 rounded-lg overflow-hidden"
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <CompactLocationMap
+                          latitude={fitLocation.lat}
+                          longitude={fitLocation.lng}
+                        />
+                      </motion.div>
+                      <motion.div
+                        className="text-xs text-gray-500 text-center"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                      >
+                        Lat: {fitLocation.lat.toFixed(6)}, Lng: {fitLocation.lng.toFixed(6)}
+                      </motion.div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      className="h-32 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      key="location-disabled"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <motion.div
+                        className="text-center"
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <motion.div
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                        </motion.div>
+                        <p className="text-sm text-gray-600">Location tracking disabled</p>
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Button variant="link" className="text-blue-600 text-sm">
+                            Enable tracking
+                          </Button>
+                        </motion.div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }
