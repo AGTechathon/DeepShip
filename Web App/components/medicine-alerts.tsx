@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { User } from "firebase/auth"
+import { ref, push, set, onValue, update } from "firebase/database"
+import { database } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,55 +11,60 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Clock, Pill, Check, X, Bell } from "lucide-react"
+import { toast } from "sonner"
 
 interface MedicineAlertsProps {
   user: User
 }
 
 interface MedicineAlert {
-  id: number
+  id: string
   name: string
   time: string
   dosage: string
   status: "taken" | "missed" | "upcoming"
   date: string
+  createdAt: number
 }
 
-const mockAlerts: MedicineAlert[] = [
-  {
-    id: 1,
-    name: "Vitamin D",
-    time: "08:00",
-    dosage: "1000 IU",
-    status: "taken",
-    date: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Omega-3",
-    time: "12:00",
-    dosage: "500mg",
-    status: "upcoming",
-    date: "2024-01-15",
-  },
-  {
-    id: 3,
-    name: "Multivitamin",
-    time: "20:00",
-    dosage: "1 tablet",
-    status: "missed",
-    date: "2024-01-14",
-  },
-]
-
 export default function MedicineAlerts({ user }: MedicineAlertsProps) {
-  const [alerts, setAlerts] = useState<MedicineAlert[]>(mockAlerts)
+  const [alerts, setAlerts] = useState<MedicineAlert[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [newAlert, setNewAlert] = useState({
     name: "",
     time: "",
     dosage: "",
   })
+
+  // Load alerts from Firebase
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+
+    const unsubscribe = onValue(alertsRef, (snapshot) => {
+      const data = snapshot.val()
+      if (data) {
+        const alertsArray = Object.entries(data).map(([id, alert]: [string, any]) => ({
+          id,
+          ...alert,
+        }))
+        // Sort by creation time (newest first)
+        alertsArray.sort((a, b) => b.createdAt - a.createdAt)
+        setAlerts(alertsArray)
+      } else {
+        setAlerts([])
+      }
+      setLoading(false)
+    }, (error) => {
+      console.error("Error loading alerts:", error)
+      toast.error("Failed to load medicine alerts")
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [user?.uid])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -85,27 +92,74 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
   }
 
-  const handleAddAlert = () => {
-    if (newAlert.name && newAlert.time && newAlert.dosage) {
-      const alert: MedicineAlert = {
-        id: Date.now(),
-        ...newAlert,
-        status: "upcoming",
+  const handleAddAlert = async () => {
+    if (!newAlert.name || !newAlert.time || !newAlert.dosage) {
+      toast.error("Please fill in all fields")
+      return
+    }
+
+    if (!user?.uid) {
+      toast.error("User not authenticated")
+      return
+    }
+
+    try {
+      const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+      const newAlertRef = push(alertsRef)
+
+      const alert = {
+        name: newAlert.name,
+        time: newAlert.time,
+        dosage: newAlert.dosage,
+        status: "upcoming" as const,
         date: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
       }
-      setAlerts([...alerts, alert])
+
+      await set(newAlertRef, alert)
+
       setNewAlert({ name: "", time: "", dosage: "" })
       setIsAddDialogOpen(false)
+      toast.success("Medicine alert added successfully!")
+    } catch (error) {
+      console.error("Error adding alert:", error)
+      toast.error("Failed to add medicine alert")
     }
   }
 
-  const markAsTaken = (id: number) => {
-    setAlerts(alerts.map((alert) => (alert.id === id ? { ...alert, status: "taken" as const } : alert)))
+  const markAsTaken = async (id: string) => {
+    if (!user?.uid) {
+      toast.error("User not authenticated")
+      return
+    }
+
+    try {
+      const alertRef = ref(database, `users/${user.uid}/medicineAlerts/${id}`)
+      await update(alertRef, {
+        status: "taken",
+        takenAt: Date.now()
+      })
+      toast.success("Marked as taken!")
+    } catch (error) {
+      console.error("Error updating alert:", error)
+      toast.error("Failed to update alert status")
+    }
   }
 
   const upcomingAlerts = alerts.filter((alert) => alert.status === "upcoming")
   const takenAlerts = alerts.filter((alert) => alert.status === "taken")
   const missedAlerts = alerts.filter((alert) => alert.status === "missed")
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <span className="ml-2 text-gray-600">Loading medicine alerts...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { User } from "firebase/auth"
+import { ref, onValue } from "firebase/database"
+import { database } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +51,29 @@ const mockReports = [
 export default function HealthReports({ user }: HealthReportsProps) {
   const [selectedDate, setSelectedDate] = useState("")
   const [filterType, setFilterType] = useState("all")
+  const [medicineAlerts, setMedicineAlerts] = useState<any[]>([])
+
+  // Load medicine alerts from Firebase
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const alertsRef = ref(database, `users/${user.uid}/medicineAlerts`)
+
+    const unsubscribe = onValue(alertsRef, (snapshot) => {
+      const data = snapshot.val()
+      if (data) {
+        const alertsArray = Object.entries(data).map(([id, alert]: [string, any]) => ({
+          id,
+          ...alert,
+        }))
+        setMedicineAlerts(alertsArray)
+      } else {
+        setMedicineAlerts([])
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user?.uid])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -63,42 +88,24 @@ export default function HealthReports({ user }: HealthReportsProps) {
     }
   }
 
-  // Sample health data - in a real app, this would come from your database
-  const getCurrentHealthData = () => ({
-    steps: 8420,
-    heartRate: {
-      average: 78,
-      minimum: 48,
-      maximum: 118
-    },
-    location: {
-      lat: 37.7749,
-      lng: -122.4194,
-      address: "San Francisco, CA, USA"
-    },
-    medicines: [
-      {
-        name: "Vitamin D3",
-        timing: "Morning with breakfast",
-        dosage: "1000 IU daily"
-      },
-      {
-        name: "Omega-3",
-        timing: "Evening with dinner",
-        dosage: "500mg twice daily"
-      },
-      {
-        name: "Multivitamin",
-        timing: "Morning",
-        dosage: "1 tablet daily"
-      }
-    ],
-    alerts: [
-      {
-        message: "Time to take your Vitamin D3",
-        time: "Today at 8:00 AM",
-        type: "medication"
-      },
+  // Get current health data including real medicine alerts from Firebase
+  const getCurrentHealthData = () => {
+    // Convert medicine alerts to the format expected by PDF generator
+    const medicines = medicineAlerts.map(alert => ({
+      name: alert.name,
+      timing: `Daily at ${alert.time}`,
+      dosage: alert.dosage
+    }))
+
+    // Convert medicine alerts to alert format for PDF
+    const medicineAlertsForPdf = medicineAlerts.map(alert => ({
+      message: `Time to take your ${alert.name}`,
+      time: `Daily at ${alert.time}`,
+      type: "medication"
+    }))
+
+    // Add some sample health and achievement alerts
+    const additionalAlerts = [
       {
         message: "Heart rate elevated during workout",
         time: "Yesterday at 3:30 PM",
@@ -109,9 +116,31 @@ export default function HealthReports({ user }: HealthReportsProps) {
         time: "Today at 6:45 PM",
         type: "achievement"
       }
-    ],
-    date: new Date().toLocaleDateString()
-  })
+    ]
+
+    return {
+      steps: 8420,
+      heartRate: {
+        average: 78,
+        minimum: 48,
+        maximum: 118
+      },
+      location: {
+        lat: 37.7749,
+        lng: -122.4194,
+        address: "San Francisco, CA, USA"
+      },
+      medicines: medicines.length > 0 ? medicines : [
+        {
+          name: "No medicines added",
+          timing: "Add medicines in Medicine Alerts section",
+          dosage: "N/A"
+        }
+      ],
+      alerts: [...medicineAlertsForPdf, ...additionalAlerts],
+      date: new Date().toLocaleDateString()
+    }
+  }
 
   const handleDownloadReport = () => {
     const healthData = getCurrentHealthData()
@@ -195,7 +224,7 @@ export default function HealthReports({ user }: HealthReportsProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Medicines</p>
-                <p className="text-2xl font-bold">3</p>
+                <p className="text-2xl font-bold">{medicineAlerts.length}</p>
               </div>
             </div>
           </CardContent>
@@ -209,7 +238,7 @@ export default function HealthReports({ user }: HealthReportsProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Alerts</p>
-                <p className="text-2xl font-bold">3</p>
+                <p className="text-2xl font-bold">{medicineAlerts.length + 2}</p>
               </div>
             </div>
           </CardContent>
