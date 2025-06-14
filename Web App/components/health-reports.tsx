@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Filter, Download, FileText, Activity, Heart, Moon, MapPin } from "lucide-react"
 import { generateHealthReport } from "@/lib/pdf-generator"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface HealthReportsProps {
   user: User
@@ -102,6 +103,45 @@ export default function HealthReports({ user }: HealthReportsProps) {
     }
   }
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const cardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 20,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5
+      }
+    }
+  }
+
+  const statsCardVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.4
+      }
+    }
+  }
+
   // Get current health data including real medicine alerts from Firebase
   const getCurrentHealthData = () => {
     // Convert medicine alerts to the format expected by PDF generator
@@ -162,173 +202,346 @@ export default function HealthReports({ user }: HealthReportsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex gap-3">
+      <motion.div
+        className="flex flex-col sm:flex-row gap-4 justify-between"
+        variants={cardVariants}
+      >
+        <motion.div
+          className="flex gap-3"
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <Input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-auto"
           />
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-        </div>
-        <Button
-          className="bg-gradient-to-r from-purple-600 to-blue-600"
-          onClick={handleDownloadReport}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button variant="outline">
+              <Filter className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+          </motion.div>
+        </motion.div>
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          initial={{ x: 20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
         >
-          <Download className="h-4 w-4 mr-2" />
-          Download Report (PDF)
-        </Button>
-      </div>
+          <Button
+            className="bg-gradient-to-r from-purple-600 to-blue-600"
+            onClick={handleDownloadReport}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Report (PDF)
+          </Button>
+        </motion.div>
+      </motion.div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-full">
-                <Activity className="h-5 w-5 text-blue-600" />
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-5 gap-4"
+        variants={containerVariants}
+      >
+        <motion.div
+          variants={statsCardVariants}
+          whileHover={{ scale: 1.05, y: -5 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="p-2 bg-blue-100 rounded-full"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <Activity className="h-5 w-5 text-blue-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-gray-600">Daily Steps</p>
+                  <motion.p
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4, type: "spring" }}
+                  >
+                    8,420
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Daily Steps</p>
-                <p className="text-2xl font-bold">8,420</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-full">
-                <Heart className="h-5 w-5 text-red-600" />
+        <motion.div
+          variants={statsCardVariants}
+          whileHover={{ scale: 1.05, y: -5 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="p-2 bg-red-100 rounded-full"
+                  whileHover={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <Heart className="h-5 w-5 text-red-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-gray-600">Heart Rate</p>
+                  <motion.p
+                    className="text-2xl font-bold"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: "spring" }}
+                  >
+                    78 BPM
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Heart Rate</p>
-                <p className="text-2xl font-bold">78 BPM</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-full">
-                <MapPin className="h-5 w-5 text-green-600" />
+        <motion.div
+          variants={statsCardVariants}
+          whileHover={{ scale: 1.05, y: -5 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="p-2 bg-green-100 rounded-full"
+                  whileHover={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <MapPin className="h-5 w-5 text-green-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-gray-600">Location</p>
+                  <motion.p
+                    className="text-sm font-bold"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    San Francisco
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Location</p>
-                <p className="text-sm font-bold">San Francisco</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-full">
-                <Moon className="h-5 w-5 text-purple-600" />
+        <motion.div
+          variants={statsCardVariants}
+          whileHover={{ scale: 1.05, y: -5 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="p-2 bg-purple-100 rounded-full"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <Moon className="h-5 w-5 text-purple-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-gray-600">Medicines</p>
+                  <motion.p
+                    className="text-2xl font-bold"
+                    key={medicineAlerts.length}
+                    initial={{ scale: 1.2 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    {medicineAlerts.length}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Medicines</p>
-                <p className="text-2xl font-bold">{medicineAlerts.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-full">
-                <FileText className="h-5 w-5 text-orange-600" />
+        <motion.div
+          variants={statsCardVariants}
+          whileHover={{ scale: 1.05, y: -5 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="p-2 bg-orange-100 rounded-full"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <FileText className="h-5 w-5 text-orange-600" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-gray-600">Alerts</p>
+                  <motion.p
+                    className="text-2xl font-bold"
+                    key={medicineAlerts.length + 2}
+                    initial={{ scale: 1.2 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.8 }}
+                  >
+                    {medicineAlerts.length + 2}
+                  </motion.p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Alerts</p>
-                <p className="text-2xl font-bold">{medicineAlerts.length + 2}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Reports List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Health Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {mockReports.map((report) => (
-              <div key={report.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-full">
-                      <FileText className="h-4 w-4 text-purple-600" />
+      <motion.div
+        variants={cardVariants}
+        whileHover={{ scale: 1.01 }}
+      >
+        <Card>
+          <CardHeader>
+            <motion.div
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.9 }}
+            >
+              <CardTitle>Health Reports</CardTitle>
+            </motion.div>
+          </CardHeader>
+          <CardContent>
+            <motion.div
+              className="space-y-4"
+              variants={containerVariants}
+            >
+              <AnimatePresence>
+                {mockReports.map((report, index) => (
+                  <motion.div
+                    key={report.id}
+                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ delay: 1.0 + index * 0.1 }}
+                    whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <motion.div
+                          className="p-2 bg-purple-100 rounded-full"
+                          whileHover={{ rotate: 360 }}
+                          transition={{ duration: 0.6 }}
+                        >
+                          <FileText className="h-4 w-4 text-purple-600" />
+                        </motion.div>
+                        <div>
+                          <h3 className="font-semibold">{report.type}</h3>
+                          <p className="text-sm text-gray-600">{report.date}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 1.2 + index * 0.1 }}
+                        >
+                          <Badge className={getStatusColor(report.status)}>{report.status}</Badge>
+                        </motion.div>
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDownloadReport}
+                            title="Download PDF Report"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </motion.div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">{report.type}</h3>
-                      <p className="text-sm text-gray-600">{report.date}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(report.status)}>{report.status}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDownloadReport}
-                      title="Download PDF Report"
+
+                    <motion.div
+                      className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.4 + index * 0.1 }}
                     >
-                      <Download className="h-4 w-4" />
+                      <div>
+                        <p className="text-gray-600">Calories</p>
+                        <p className="font-semibold">{report.calories.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Heart Rate</p>
+                        <p className="font-semibold">{report.avgHeartRate} BPM</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Sleep</p>
+                        <p className="font-semibold">{report.sleep}h</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Steps</p>
+                        <p className="font-semibold">{report.steps.toLocaleString()}</p>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+
+            <AnimatePresence>
+              {mockReports.length === 0 && (
+                <motion.div
+                  className="text-center py-12"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ delay: 1.0 }}
+                >
+                  <motion.div
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  </motion.div>
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Report</h3>
+                  <p className="text-gray-500 mb-4">Download your comprehensive health report as PDF</p>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      className="bg-gradient-to-r from-purple-600 to-blue-600"
+                      onClick={handleDownloadReport}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Report (PDF)
                     </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Calories</p>
-                    <p className="font-semibold">{report.calories.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Heart Rate</p>
-                    <p className="font-semibold">{report.avgHeartRate} BPM</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Sleep</p>
-                    <p className="font-semibold">{report.sleep}h</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Steps</p>
-                    <p className="font-semibold">{report.steps.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {mockReports.length === 0 && (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Report</h3>
-              <p className="text-gray-500 mb-4">Download your comprehensive health report as PDF</p>
-              <Button
-                className="bg-gradient-to-r from-purple-600 to-blue-600"
-                onClick={handleDownloadReport}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Report (PDF)
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
   )
 }

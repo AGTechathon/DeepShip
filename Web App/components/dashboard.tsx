@@ -66,20 +66,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Load location data from Firebase
-  useEffect(() => {
-    if (!user?.uid) return
 
-    const locationRef = ref(database, `users/${user.uid}/liveLocation`)
-    const unsubscribe = onValue(locationRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        setLocation(data)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [user?.uid])
 
   // Realtime heart rate simulation
   useEffect(() => {
