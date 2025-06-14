@@ -15,8 +15,12 @@
       },
       "oauth_client": [
         {
-          "client_id": "391075985944-la8ap07i6bb0mep088366qnf24033uss.apps.googleusercontent.com",
+          "client_id": "391075985944-jd891lr9j6t21k03jg857s9f1pas5gli.apps.googleusercontent.com",
           "client_type": 3
+        },
+        {
+          "client_id": "391075985944-temp-android-client.apps.googleusercontent.com",
+          "client_type": 1
         }
       ],
       "api_key": [
@@ -28,7 +32,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "391075985944-la8ap07i6bb0mep088366qnf24033uss.apps.googleusercontent.com",
+              "client_id": "391075985944-jd891lr9j6t21k03jg857s9f1pas5gli.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

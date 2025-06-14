@@ -11,6 +11,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.common.ConnectionResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
@@ -24,7 +26,7 @@ class AuthRepository(private val context: Context) {
     companion object {
         private const val TAG = "AuthRepository"
         // Web client ID from google-services.json
-        private const val WEB_CLIENT_ID = "391075985944-la8ap07i6bb0mep088366qnf24033uss.apps.googleusercontent.com"
+        private const val WEB_CLIENT_ID = "391075985944-jd891lr9j6t21k03jg857s9f1pas5gli.apps.googleusercontent.com"
     }
 
     /**
@@ -84,11 +86,18 @@ class AuthRepository(private val context: Context) {
     suspend fun signInWithGoogle(): Flow<AuthState> = flow {
         try {
             emit(AuthState.Loading)
-            
+            Log.d(TAG, "Starting Google Sign-In with Web Client ID: $WEB_CLIENT_ID")
+
+            // Check if Google Play Services is available
+            if (!isGooglePlayServicesAvailable()) {
+                emit(AuthState.Error("Google Play Services is not available on this device"))
+                return@flow
+            }
+
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(WEB_CLIENT_ID)
-                .setAutoSelectEnabled(true)
+                .setAutoSelectEnabled(false) // Changed to false for better debugging
                 .setNonce(generateNonce())
                 .build()
 
@@ -96,25 +105,46 @@ class AuthRepository(private val context: Context) {
                 .addCredentialOption(googleIdOption)
                 .build()
 
+            Log.d(TAG, "Requesting credentials from Credential Manager")
             val result = credentialManager.getCredential(
                 request = request,
                 context = context
             )
 
+            Log.d(TAG, "Credential received, creating Google ID token credential")
             val credential = GoogleIdTokenCredential.createFrom(result.credential.data)
             val googleCredential = GoogleAuthProvider.getCredential(credential.idToken, null)
-            
+
+            Log.d(TAG, "Signing in with Firebase using Google credential")
             val authResult = auth.signInWithCredential(googleCredential).await()
             authResult.user?.let { user ->
+                Log.d(TAG, "Google Sign-In successful for user: ${user.email}")
                 emit(AuthState.Authenticated(user))
-            } ?: emit(AuthState.Error("Google sign in failed"))
-            
+            } ?: emit(AuthState.Error("Google sign in failed - no user returned"))
+
         } catch (e: GetCredentialException) {
-            Log.e(TAG, "Google sign in failed", e)
-            emit(AuthState.Error("Google sign in failed: ${e.message}"))
+            Log.e(TAG, "GetCredentialException during Google sign in", e)
+            val errorMessage = when (e.type) {
+                GetCredentialException.TYPE_NO_CREDENTIAL -> "No Google credentials found. Please ensure you have a Google account set up on this device and that the app is properly configured in Firebase Console."
+                GetCredentialException.TYPE_USER_CANCELED -> "Google sign in was canceled by user"
+                GetCredentialException.TYPE_INTERRUPTED -> "Google sign in was interrupted"
+                else -> "Google sign in failed: ${e.message}. Please check Firebase configuration."
+            }
+            emit(AuthState.Error(errorMessage))
         } catch (e: Exception) {
-            Log.e(TAG, "Google sign in failed", e)
-            emit(AuthState.Error(e.message ?: "Google sign in failed"))
+            Log.e(TAG, "Exception during Google sign in", e)
+            emit(AuthState.Error("Google sign in failed: ${e.message}. Please check Firebase configuration and ensure SHA-1 fingerprint is added."))
+        }
+    }
+
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        return try {
+            val googleApiAvailability = GoogleApiAvailability.getInstance()
+            val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(context)
+            resultCode == ConnectionResult.SUCCESS
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking Google Play Services availability", e)
+            false
         }
     }
 
