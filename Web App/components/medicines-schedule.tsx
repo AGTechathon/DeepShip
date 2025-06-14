@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Clock, Pill, Check, X, Bell, Trash2, Edit } from "lucide-react"
+import { Plus, Clock, Pill, Check, X, Bell, Trash2, Edit, Calendar } from "lucide-react"
 import { toast } from "sonner"
 
 interface MedicinesScheduleProps {
@@ -116,6 +116,8 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
   }, [user?.uid])
 
   // Load daily medicine statuses from Firestore
+  const [dailyMedicinesMap, setDailyMedicinesMap] = useState(new Map())
+
   useEffect(() => {
     if (!user?.uid) return
 
@@ -124,86 +126,90 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     )
 
     const unsubscribe = onSnapshot(dailyMedicinesQuery, (snapshot) => {
-      const dailyMedicinesMap = new Map()
+      const newDailyMedicinesMap = new Map()
 
       snapshot.forEach((doc) => {
         const data = doc.data()
-        dailyMedicinesMap.set(`${data.scheduleId}-${data.date}`, {
+        newDailyMedicinesMap.set(`${data.scheduleId}-${data.date}`, {
           id: doc.id,
           status: data.status,
           takenAt: data.takenAt
         })
       })
 
-      // Generate daily medicines for the current week
-      if (schedules.length === 0) {
-        setDailyMedicines([])
-        return
-      }
-
-      const today = new Date()
-      const startOfWeek = new Date(today)
-      startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
-
-      const weeklyMedicines: DailyMedicine[] = []
-
-      for (let i = 0; i < 7; i++) {
-        const currentDate = new Date(startOfWeek)
-        currentDate.setDate(startOfWeek.getDate() + i)
-        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-        const dateString = currentDate.toISOString().split('T')[0]
-
-        schedules.forEach(schedule => {
-          if (schedule.status === "active" && schedule.days.includes(dayName)) {
-            const dailyMedicineKey = `${schedule.id}-${dateString}`
-            const existingDaily = dailyMedicinesMap.get(dailyMedicineKey)
-
-            // Determine status based on time and existing data
-            let status: "taken" | "missed" | "upcoming" = "upcoming"
-            let takenAt: Timestamp | undefined = undefined
-
-            if (existingDaily) {
-              status = existingDaily.status
-              takenAt = existingDaily.takenAt
-            } else {
-              // Check if grace period has passed for today's medicines
-              const now = new Date()
-              const isToday = dateString === now.toISOString().split('T')[0]
-
-              if (isToday) {
-                const [hours, minutes] = schedule.time.split(':').map(Number)
-                const medicineTime = new Date()
-                medicineTime.setHours(hours, minutes, 0, 0)
-
-                // Add 30-minute grace period before marking as missed
-                const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
-                const missedThreshold = medicineTime.getTime() + gracePeriodMs
-
-                if (now.getTime() > missedThreshold) {
-                  status = "missed"
-                }
-              }
-            }
-
-            weeklyMedicines.push({
-              id: existingDaily?.id || `${schedule.id}-${dateString}`,
-              scheduleId: schedule.id,
-              name: schedule.name,
-              time: schedule.time,
-              dosage: schedule.dosage,
-              date: dateString,
-              status: status,
-              takenAt: takenAt
-            })
-          }
-        })
-      }
-
-      setDailyMedicines(weeklyMedicines)
+      setDailyMedicinesMap(newDailyMedicinesMap)
     })
 
     return () => unsubscribe()
-  }, [schedules, user?.uid])
+  }, [user?.uid])
+
+  // Generate daily medicines for the current week
+  useEffect(() => {
+    if (schedules.length === 0) {
+      setDailyMedicines([])
+      return
+    }
+
+    const today = new Date()
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
+
+    const weeklyMedicines: DailyMedicine[] = []
+
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(startOfWeek)
+      currentDate.setDate(startOfWeek.getDate() + i)
+      const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+      const dateString = currentDate.toISOString().split('T')[0]
+
+      schedules.forEach(schedule => {
+        if (schedule.status === "active" && schedule.days.includes(dayName)) {
+          const dailyMedicineKey = `${schedule.id}-${dateString}`
+          const existingDaily = dailyMedicinesMap.get(dailyMedicineKey)
+
+          // Determine status based on time and existing data
+          let status: "taken" | "missed" | "upcoming" = "upcoming"
+          let takenAt: Timestamp | undefined = undefined
+
+          if (existingDaily) {
+            status = existingDaily.status
+            takenAt = existingDaily.takenAt
+          } else {
+            // Check if grace period has passed for today's medicines
+            const now = new Date()
+            const isToday = dateString === now.toISOString().split('T')[0]
+
+            if (isToday) {
+              const [hours, minutes] = schedule.time.split(':').map(Number)
+              const medicineTime = new Date()
+              medicineTime.setHours(hours, minutes, 0, 0)
+
+              // Add 30-minute grace period before marking as missed
+              const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+              const missedThreshold = medicineTime.getTime() + gracePeriodMs
+
+              if (now.getTime() > missedThreshold) {
+                status = "missed"
+              }
+            }
+          }
+
+          weeklyMedicines.push({
+            id: existingDaily?.id || `${schedule.id}-${dateString}`,
+            scheduleId: schedule.id,
+            name: schedule.name,
+            time: schedule.time,
+            dosage: schedule.dosage,
+            date: dateString,
+            status: status,
+            takenAt: takenAt
+          })
+        }
+      })
+    }
+
+    setDailyMedicines(weeklyMedicines)
+  }, [schedules, dailyMedicinesMap])
 
   // Auto-update missed medicines (with 30-minute grace period)
   useEffect(() => {
@@ -346,7 +352,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     }))
   }
 
-  const markMedicineAsTaken = async (medicine: DailyMedicine) => {
+  const updateMedicineStatus = async (medicine: DailyMedicine, newStatus: "taken" | "missed" | "upcoming") => {
     if (!user?.uid) {
       toast.error("User not authenticated")
       return
@@ -359,26 +365,42 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         const dailyMedicine = {
           scheduleId: medicine.scheduleId,
           date: medicine.date,
-          status: "taken",
-          takenAt: Timestamp.now()
+          status: newStatus,
+          ...(newStatus === "taken" && { takenAt: Timestamp.now() })
         }
 
         await addDoc(collection(firestore, `users/${user.uid}/daily_medicines`), dailyMedicine)
       } else {
         // Update existing daily medicine record
         const medicineRef = doc(firestore, `users/${user.uid}/daily_medicines`, medicine.id)
-        await updateDoc(medicineRef, {
-          status: "taken",
-          takenAt: Timestamp.now()
-        })
+        const updateData: any = { status: newStatus }
+
+        if (newStatus === "taken") {
+          updateData.takenAt = Timestamp.now()
+        } else if (newStatus === "upcoming") {
+          // Remove takenAt when marking as upcoming
+          updateData.takenAt = null
+        }
+
+        await updateDoc(medicineRef, updateData)
       }
 
-      toast.success("Marked as taken!")
+      const statusMessages = {
+        taken: "Marked as taken!",
+        missed: "Marked as missed!",
+        upcoming: "Reset to upcoming!"
+      }
+
+      toast.success(statusMessages[newStatus])
     } catch (error: any) {
       console.error("Error updating medicine status:", error)
       toast.error(`Failed to update medicine status: ${error.message}`)
     }
   }
+
+  const markMedicineAsTaken = (medicine: DailyMedicine) => updateMedicineStatus(medicine, "taken")
+  const markMedicineAsMissed = (medicine: DailyMedicine) => updateMedicineStatus(medicine, "missed")
+  const markMedicineAsUpcoming = (medicine: DailyMedicine) => updateMedicineStatus(medicine, "upcoming")
 
   // Helper function to check if medicine is for today
   const isToday = (dateString: string) => {
@@ -426,26 +448,26 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "taken":
-        return "bg-green-100 text-green-800 border-green-200"
+        return "bg-gradient-to-br from-green-50 to-green-100 text-green-800 border-green-300 shadow-sm"
       case "upcoming":
-        return "bg-blue-100 text-blue-800 border-blue-200"
+        return "bg-gradient-to-br from-blue-50 to-blue-100 text-blue-800 border-blue-300 shadow-sm"
       case "missed":
-        return "bg-red-100 text-red-800 border-red-200"
+        return "bg-gradient-to-br from-red-50 to-red-100 text-red-800 border-red-300 shadow-sm"
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+        return "bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800 border-gray-300 shadow-sm"
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "taken":
-        return <Check className="h-3 w-3" />
+        return <Check className="h-4 w-4 text-green-600" />
       case "upcoming":
-        return <Clock className="h-3 w-3" />
+        return <Clock className="h-4 w-4 text-blue-600" />
       case "missed":
-        return <X className="h-3 w-3" />
+        return <X className="h-4 w-4 text-red-600" />
       default:
-        return <Bell className="h-3 w-3" />
+        return <Bell className="h-4 w-4 text-gray-600" />
     }
   }
 
@@ -576,17 +598,88 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
           if (todaysMedicines.length > 0) {
             return (
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{upcomingCount}</div>
-                  <div className="text-sm text-blue-600">Upcoming</div>
+                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm">
+                  <div className="flex items-center justify-center mb-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700">{upcomingCount}</div>
+                  <div className="text-sm text-blue-600 font-medium">Upcoming</div>
                 </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{takenCount}</div>
-                  <div className="text-sm text-green-600">Taken</div>
+                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm">
+                  <div className="flex items-center justify-center mb-2">
+                    <Check className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-green-700">{takenCount}</div>
+                  <div className="text-sm text-green-600 font-medium">Taken</div>
                 </div>
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{missedCount}</div>
-                  <div className="text-sm text-red-600">Missed</div>
+                <div className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 shadow-sm">
+                  <div className="flex items-center justify-center mb-2">
+                    <X className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-red-700">{missedCount}</div>
+                  <div className="text-sm text-red-600 font-medium">Missed</div>
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
+
+        {/* Today's Medicines Quick Actions */}
+        {(() => {
+          const today = new Date().toISOString().split('T')[0]
+          const todaysMedicines = dailyMedicines.filter(med => med.date === today)
+
+          if (todaysMedicines.length > 0) {
+            return (
+              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-200">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Today's Medicines
+                </h4>
+                <div className="space-y-2">
+                  {todaysMedicines.map((medicine) => {
+                    const actualStatus = getActualStatus(medicine)
+                    return (
+                      <div key={medicine.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${getStatusColor(actualStatus).split(' ')[0]} ${getStatusColor(actualStatus).split(' ')[1]}`}>
+                            {getStatusIcon(actualStatus)}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{medicine.name}</div>
+                            <div className="text-xs text-gray-500">{medicine.time} • {medicine.dosage}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant={actualStatus === "upcoming" ? "default" : "outline"}
+                            onClick={() => markMedicineAsUpcoming(medicine)}
+                            className="text-xs px-2 py-1 h-7"
+                          >
+                            Upcoming
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={actualStatus === "taken" ? "default" : "outline"}
+                            onClick={() => markMedicineAsTaken(medicine)}
+                            className="text-xs px-2 py-1 h-7 bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Taken
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={actualStatus === "missed" ? "default" : "outline"}
+                            onClick={() => markMedicineAsMissed(medicine)}
+                            className="text-xs px-2 py-1 h-7 bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            Missed
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -611,38 +704,80 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
           </div>
 
           {/* Medicines for each day */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-3">
             {getWeekDates().map((day, index) => {
               const dayMedicines = getMedicinesForDay(day.dayName, day.date.toISOString().split('T')[0])
               return (
-                <div key={index} className="space-y-1 min-h-[120px]">
+                <div key={index} className="space-y-2 min-h-[160px] p-2 bg-gray-50 rounded-lg border">
+                  <div className="text-xs font-medium text-gray-600 text-center mb-2">
+                    {dayMedicines.length} medicine{dayMedicines.length !== 1 ? 's' : ''}
+                  </div>
                   {dayMedicines.map((medicine) => {
                     const actualStatus = getActualStatus(medicine)
+                    const isCurrentDay = isToday(medicine.date)
                     return (
                       <div
                         key={medicine.id}
-                        className={`p-2 border rounded text-xs relative ${getStatusColor(actualStatus)}`}
+                        className={`p-3 border rounded-lg text-xs relative transition-all hover:shadow-md ${getStatusColor(actualStatus)}`}
                       >
-                        <div className="font-medium truncate">{medicine.name}</div>
-                        <div className="text-xs">{medicine.time}</div>
-                        <div className="text-xs">{medicine.dosage}</div>
-                        <div className="flex items-center justify-between mt-1">
+                        <div className="font-semibold truncate text-sm mb-1">{medicine.name}</div>
+                        <div className="text-xs opacity-75 mb-1">{medicine.time}</div>
+                        <div className="text-xs opacity-75 mb-2">{medicine.dosage}</div>
+
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
                             {getStatusIcon(actualStatus)}
-                            <span className="text-xs capitalize">{actualStatus}</span>
+                            <span className="text-xs font-medium capitalize">{actualStatus}</span>
                           </div>
-                          {medicine.status === "upcoming" && isToday(medicine.date) && !isGracePeriodPassed(medicine.time) && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-4 w-4 p-0 hover:bg-green-200"
-                              onClick={() => markMedicineAsTaken(medicine)}
-                              title="Mark as taken"
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
+
+                          {/* Status Control Buttons */}
+                          {isCurrentDay && (
+                            <div className="flex gap-1">
+                              {actualStatus !== "taken" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-green-200 rounded-full"
+                                  onClick={() => markMedicineAsTaken(medicine)}
+                                  title="Mark as taken"
+                                >
+                                  <Check className="h-3 w-3 text-green-600" />
+                                </Button>
+                              )}
+                              {actualStatus !== "missed" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-red-200 rounded-full"
+                                  onClick={() => markMedicineAsMissed(medicine)}
+                                  title="Mark as missed"
+                                >
+                                  <X className="h-3 w-3 text-red-600" />
+                                </Button>
+                              )}
+                              {actualStatus !== "upcoming" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0 hover:bg-blue-200 rounded-full"
+                                  onClick={() => markMedicineAsUpcoming(medicine)}
+                                  title="Reset to upcoming"
+                                >
+                                  <Clock className="h-3 w-3 text-blue-600" />
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </div>
+
+                        {/* Show taken time if medicine was taken */}
+                        {medicine.takenAt && actualStatus === "taken" && (
+                          <div className="text-xs text-green-600 mt-1 opacity-75">
+                            Taken: {medicine.takenAt instanceof Timestamp
+                              ? medicine.takenAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : 'Unknown'}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -653,37 +788,50 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         </div>
 
         {/* Medicine Schedules List */}
-        <div className="mt-6 space-y-3">
-          <h4 className="font-semibold text-gray-900">All Medicine Schedules</h4>
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold text-gray-900 text-lg">All Medicine Schedules</h4>
+            <div className="text-sm text-gray-500">
+              {schedules.length} schedule{schedules.length !== 1 ? 's' : ''}
+            </div>
+          </div>
           {schedules.length > 0 ? (
             schedules.map((schedule) => (
-              <div key={schedule.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <Pill className="h-4 w-4 text-purple-600" />
+              <div key={schedule.id} className="flex items-center justify-between p-5 border rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl">
+                    <Pill className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">{schedule.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {schedule.dosage} at {schedule.time}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {schedule.days.map(day => day.charAt(0).toUpperCase() + day.slice(1, 3)).join(', ')}
-                    </p>
+                    <h3 className="font-semibold text-lg text-gray-900">{schedule.name}</h3>
+                    <div className="flex items-center gap-3 mt-1">
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {schedule.time}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {schedule.dosage}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                        {schedule.days.map(day => day.charAt(0).toUpperCase() + day.slice(1, 3)).join(', ')}
+                      </p>
+                      <Badge variant={schedule.status === "active" ? "default" : "secondary"} className="text-xs">
+                        {schedule.status}
+                      </Badge>
+                    </div>
                     {schedule.notes && (
-                      <p className="text-xs text-gray-500 italic">{schedule.notes}</p>
+                      <p className="text-xs text-gray-500 italic mt-1 bg-gray-50 px-2 py-1 rounded">{schedule.notes}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={schedule.status === "active" ? "default" : "secondary"}>
-                    {schedule.status}
-                  </Badge>
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(schedule)}>
-                    <Edit className="h-3 w-3" />
+                  <Button size="sm" variant="outline" onClick={() => openEditDialog(schedule)} className="hover:bg-blue-50">
+                    <Edit className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDeleteSchedule(schedule.id)}>
-                    <Trash2 className="h-3 w-3" />
+                  <Button size="sm" variant="outline" onClick={() => handleDeleteSchedule(schedule.id)} className="hover:bg-red-50 text-red-600">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
