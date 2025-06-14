@@ -10,6 +10,7 @@ import type { User } from "firebase/auth"
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [googleFitToken, setGoogleFitToken] = useState<string | null>(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -28,5 +29,5 @@ export default function App() {
     )
   }
 
-  return user ? <HomePage user={user} /> : <AuthPage />
+  return user ? <HomePage user={user} googleFitToken={googleFitToken} /> : <AuthPage setGoogleFitToken={setGoogleFitToken} />
 }

@@ -14,11 +14,12 @@ import LiveLocation from "@/components/live-location"
 
 interface HomePageProps {
   user: User
+  googleFitToken: string | null
 }
 
 type ActivePage = "dashboard" | "reports" | "alerts" | "location"
 
-export default function HomePage({ user }: HomePageProps) {
+export default function HomePage({ user, googleFitToken }: HomePageProps) {
   const [activePage, setActivePage] = useState<ActivePage>("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -40,7 +41,7 @@ export default function HomePage({ user }: HomePageProps) {
   const renderContent = () => {
     switch (activePage) {
       case "dashboard":
-        return <Dashboard user={user} />
+        return <Dashboard user={user} googleFitToken={googleFitToken} />
       case "reports":
         return <HealthReports user={user} />
       case "alerts":
@@ -48,7 +49,7 @@ export default function HomePage({ user }: HomePageProps) {
       case "location":
         return <LiveLocation user={user} />
       default:
-        return <Dashboard user={user} />
+        return <Dashboard user={user} googleFitToken={googleFitToken} />
     }
   }
 

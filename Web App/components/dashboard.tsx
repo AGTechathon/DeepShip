@@ -25,6 +25,7 @@ const CompactLocationMap = dynamic(() => import("@/components/compact-location-m
 
 interface DashboardProps {
   user: User
+  googleFitToken: string | null
 }
 
 interface LocationData {
@@ -44,7 +45,7 @@ const heartRateData = [
   { time: "10:45", rate: 83 },
 ]
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [currentHeartRate, setCurrentHeartRate] = useState(78)
   const [heartRateHistory, setHeartRateHistory] = useState(heartRateData)
@@ -59,6 +60,9 @@ export default function Dashboard({ user }: DashboardProps) {
     lng: 75.891103,
     lastUpdated: "6/14/2025, 5:55:59 PM",
   })
+  const [fitSteps, setFitSteps] = useState<number | null>(null)
+  const [fitHeartRate, setFitHeartRate] = useState<number | null>(null)
+  const [fitLocation, setFitLocation] = useState<{lat: number, lng: number} | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -121,6 +125,77 @@ export default function Dashboard({ user }: DashboardProps) {
     return () => clearInterval(heartRateInterval)
   }, [isRealtimeActive])
 
+  useEffect(() => {
+    if (!googleFitToken) return;
+    // Fetch Google Fit data
+    const fetchGoogleFitData = async () => {
+      try {
+        console.log('Fetching Google Fit data with token:', googleFitToken.substring(0, 10) + '...');
+        const now = Date.now();
+        const oneDayAgo = now - 24 * 60 * 60 * 1000;
+        const url = 'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate';
+        const body = {
+          aggregateBy: [
+            { dataTypeName: 'com.google.step_count.delta' },
+            { dataTypeName: 'com.google.heart_rate.bpm' },
+            { dataTypeName: 'com.google.location.sample' }
+          ],
+          bucketByTime: { durationMillis: 86400000 },
+          startTimeMillis: oneDayAgo,
+          endTimeMillis: now
+        };
+        
+        console.log('Request body:', JSON.stringify(body, null, 2));
+        
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${googleFitToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error('Google Fit API Error:', {
+            status: res.status,
+            statusText: res.statusText,
+            error: errorData
+          });
+          throw new Error(`Google Fit API Error: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        console.log('Google Fit API Response:', JSON.stringify(data, null, 2));
+
+        // Parse steps
+        const steps = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('step_count'))?.point?.[0]?.value?.[0]?.intVal;
+        setFitSteps(steps || 0);
+        
+        // Parse heart rate (average)
+        const heartPoints = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('heart_rate'))?.point;
+        let avgHeart = null;
+        if (heartPoints && heartPoints.length > 0) {
+          const sum = heartPoints.reduce((acc: number, pt: any) => acc + (pt.value?.[0]?.fpVal || 0), 0);
+          avgHeart = Math.round(sum / heartPoints.length);
+        }
+        setFitHeartRate(avgHeart);
+        
+        // Parse location (last sample)
+        const locPoints = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('location'))?.point;
+        if (locPoints && locPoints.length > 0) {
+          const last = locPoints[locPoints.length - 1];
+          setFitLocation({ lat: last.value?.[0]?.fpVal, lng: last.value?.[1]?.fpVal });
+        }
+      } catch (error) {
+        console.error('Error fetching Google Fit data:', error);
+        // You might want to show an error message to the user here
+      }
+    };
+    fetchGoogleFitData();
+  }, [googleFitToken]);
+
   const toggleRealtime = () => {
     setIsRealtimeActive(!isRealtimeActive)
   }
@@ -174,7 +249,7 @@ export default function Dashboard({ user }: DashboardProps) {
                   <span className="text-sm font-medium text-gray-600">Steps</span>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-3xl font-bold">1,524</div>
+                  <div className="text-3xl font-bold">{fitSteps || 1524}</div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <span>+100% This day</span>
                   </div>
@@ -203,15 +278,15 @@ export default function Dashboard({ user }: DashboardProps) {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <div className="text-3xl font-bold text-red-600">{currentHeartRate}</div>
+                    <div className="text-3xl font-bold text-red-600">{fitHeartRate || currentHeartRate}</div>
                     <span className="text-sm text-gray-500">BPM</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={`text-xs ${getHeartRateStatus(currentHeartRate).textColor} border-current`}
+                      className={`text-xs ${getHeartRateStatus(fitHeartRate || currentHeartRate).textColor} border-current`}
                     >
-                      {getHeartRateStatus(currentHeartRate).status}
+                      {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
                     </Badge>
                     {isRealtimeActive && (
                       <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -365,13 +440,13 @@ export default function Dashboard({ user }: DashboardProps) {
                     <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
                     <span className="font-semibold">Live Heart Rate</span>
                   </div>
-                  <Badge className={getHeartRateStatus(currentHeartRate).color}>
-                    {getHeartRateStatus(currentHeartRate).status}
+                  <Badge className={getHeartRateStatus(fitHeartRate || currentHeartRate).color}>
+                    {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-red-600">{currentHeartRate}</div>
+                    <div className="text-3xl font-bold text-red-600">{fitHeartRate || currentHeartRate}</div>
                     <div className="text-sm text-gray-500">BPM</div>
                   </div>
                   <Button
@@ -469,16 +544,16 @@ export default function Dashboard({ user }: DashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {location.lat && location.lng ? (
+              {fitLocation ? (
                 <div className="space-y-2">
                   <div className="h-32 rounded-lg overflow-hidden">
                     <CompactLocationMap
-                      latitude={location.lat}
-                      longitude={location.lng}
+                      latitude={fitLocation.lat}
+                      longitude={fitLocation.lng}
                     />
                   </div>
                   <div className="text-xs text-gray-500 text-center">
-                    Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}
+                    Lat: {fitLocation.lat.toFixed(6)}, Lng: {fitLocation.lng.toFixed(6)}
                   </div>
                 </div>
               ) : (

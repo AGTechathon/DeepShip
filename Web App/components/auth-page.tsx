@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 import { ref, set } from "firebase/database"
 import { auth, database } from "@/lib/firebase"
@@ -14,13 +14,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Heart } from "lucide-react"
 
-export default function AuthPage() {
+export default function AuthPage({ setGoogleFitToken }: { setGoogleFitToken: (token: string | null) => void }) {
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [fitHeartRate, setFitHeartRate] = useState<number | null>(null)
 
   const initializeUserData = async (userId: string) => {
     const userRef = ref(database, `users/${userId}`)
@@ -73,6 +74,41 @@ export default function AuthPage() {
       setLoading(false)
     }
   }
+
+  const handleGoogleFitLogin = async () => {
+    const clientId = "770835659154-1s7rg8ogv94ta92cltnkgod5mf75h9ns.apps.googleusercontent.com" // TODO: Replace with your client ID
+    const redirectUri = window.location.origin
+    const scope = [
+      "https://www.googleapis.com/auth/fitness.activity.read",
+      "https://www.googleapis.com/auth/fitness.location.read",
+      "https://www.googleapis.com/auth/fitness.heart_rate.read"
+    ].join(" ")
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true`
+    // Open popup for OAuth2
+    const width = 500, height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+    const popup = window.open(authUrl, "GoogleFitLogin", `width=${width},height=${height},left=${left},top=${top}`)
+    if (!popup) return
+    // Listen for token in URL hash
+    const interval = setInterval(() => {
+      try {
+        if (!popup.closed && popup.location.hash) {
+          const hash = popup.location.hash.substring(1)
+          const params = new URLSearchParams(hash)
+          const accessToken = params.get("access_token")
+          if (accessToken) {
+            setGoogleFitToken(accessToken)
+            popup.close()
+            clearInterval(interval)
+          }
+        } else if (popup.closed) {
+          clearInterval(interval)
+        }
+      } catch {}
+    }, 500)
+  }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-blue-50 to-indigo-100 p-4">
@@ -198,6 +234,20 @@ export default function AuthPage() {
                 />
               </svg>
               Continue with Google
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-2"
+              onClick={handleGoogleFitLogin}
+              disabled={loading}
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="#34A853" />
+                <text x="12" y="16" textAnchor="middle" fontSize="10" fill="#fff">Fit</text>
+              </svg>
+              Connect Google Fit
             </Button>
 
             <div className="text-center">
