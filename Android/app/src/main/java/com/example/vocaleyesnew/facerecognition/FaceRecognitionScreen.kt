@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vocaleyesnew.VoiceRecognitionManager
 import com.example.vocaleyesnew.navigation.CameraPreviewWithAnalysis
-import com.example.vocaleyesnew.textextraction.toBitmap
+import com.example.vocaleyesnew.utils.ImageProcessingUtils.toBitmap
 import com.google.mlkit.vision.face.Face
 import kotlinx.coroutines.launch
 
@@ -109,16 +109,24 @@ fun FaceRecognitionScreen(
                         val bitmap = imageProxy.toBitmap()
                         if (bitmap != null) {
                             currentBitmap = bitmap
+                            Log.d("FaceRecognition", "Processing bitmap: ${bitmap.width}x${bitmap.height}")
                             val result = faceRecognitionManager.detectFaces(bitmap)
                             detectedFaces = result.faces
+                            Log.d("FaceRecognition", "Detected ${result.faces.size} faces")
                             
                             when (mode) {
                                 FaceRecognitionMode.RECOGNIZE -> {
                                     if (result.faces.isNotEmpty()) {
                                         val results = mutableListOf<FaceRecognitionManager.FaceRecognitionResult>()
                                         result.faces.forEach { face ->
+                                            Log.d("FaceRecognition", "Processing face with bounding box: ${face.boundingBox}")
                                             val recognitionResult = faceRecognitionManager.recognizeFace(face)
-                                            recognitionResult?.let { results.add(it) }
+                                            if (recognitionResult != null) {
+                                                results.add(recognitionResult)
+                                                Log.d("FaceRecognition", "Recognition result: ${recognitionResult.personName} (confidence: ${recognitionResult.confidence})")
+                                            } else {
+                                                Log.d("FaceRecognition", "Face recognition returned null (likely failed quality check)")
+                                            }
                                         }
                                         recognitionResults = results
                                         
@@ -144,7 +152,13 @@ fun FaceRecognitionScreen(
                                                 lastRecognizedName = currentName
                                             }
                                         } else {
-                                            statusMessage = "Unknown person detected"
+                                            // Check if faces were detected but not recognized due to quality issues
+                                            val qualityFailedFaces = result.faces.size - results.size
+                                            statusMessage = if (qualityFailedFaces > 0) {
+                                                "Face detected but quality too low for recognition"
+                                            } else {
+                                                "Unknown person detected"
+                                            }
                                             // Reset last recognized name when no one is recognized
                                             if (lastRecognizedName != null) {
                                                 lastRecognizedName = null
@@ -157,7 +171,23 @@ fun FaceRecognitionScreen(
                                 }
                                 FaceRecognitionMode.ADD_PERSON -> {
                                     if (result.faces.isNotEmpty()) {
-                                        statusMessage = "${result.faces.size} face(s) detected. Say 'capture' to save."
+                                        // Check face quality for saving
+                                        val goodQualityFaces = result.faces.count { face ->
+                                            // Basic quality check similar to the one in FaceRecognitionManager
+                                            val bbox = face.boundingBox
+                                            val faceArea = bbox.width() * bbox.height()
+                                            val rotX = kotlin.math.abs(face.headEulerAngleX)
+                                            val rotY = kotlin.math.abs(face.headEulerAngleY)
+                                            val rotZ = kotlin.math.abs(face.headEulerAngleZ)
+
+                                            faceArea >= 2500 && rotX <= 45 && rotY <= 45 && rotZ <= 30
+                                        }
+
+                                        statusMessage = if (goodQualityFaces > 0) {
+                                            "$goodQualityFaces good quality face(s) detected. Say 'capture' to save."
+                                        } else {
+                                            "${result.faces.size} face(s) detected but quality too low. Adjust position."
+                                        }
                                     } else {
                                         statusMessage = "No faces detected. Position face in camera."
                                     }
@@ -296,12 +326,25 @@ fun FaceRecognitionScreen(
                 if (mode == FaceRecognitionMode.ADD_PERSON && detectedFaces.isNotEmpty()) {
                     Button(
                         onClick = {
-                            val face = detectedFaces.firstOrNull()
-                            if (face != null && currentBitmap != null) {
-                                pendingFace = face
+                            // Find the best quality face for capture
+                            val bestFace = detectedFaces.firstOrNull { face ->
+                                val bbox = face.boundingBox
+                                val faceArea = bbox.width() * bbox.height()
+                                val rotX = kotlin.math.abs(face.headEulerAngleX)
+                                val rotY = kotlin.math.abs(face.headEulerAngleY)
+                                val rotZ = kotlin.math.abs(face.headEulerAngleZ)
+
+                                faceArea >= 2500 && rotX <= 45 && rotY <= 45 && rotZ <= 30
+                            }
+
+                            if (bestFace != null && currentBitmap != null) {
+                                pendingFace = bestFace
                                 awaitingPersonName = true
-                                voiceRecognitionManager.speak("Please say the person's name")
+                                voiceRecognitionManager.speak("Good face detected. Please say the person's name")
                                 statusMessage = "Say the person's name"
+                            } else {
+                                voiceRecognitionManager.speak("No good quality face detected. Please adjust position.")
+                                statusMessage = "Adjust face position for better quality"
                             }
                         },
                         colors = ButtonDefaults.buttonColors(

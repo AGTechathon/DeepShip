@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.Executors
 import com.example.vocaleyesnew.facerecognition.FaceRecognitionManager
+import com.example.vocaleyesnew.utils.ImageProcessingUtils.toBitmap
 import com.example.vocaleyesnew.VoiceRecognitionManager
 import android.util.Log
 

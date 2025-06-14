@@ -22,6 +22,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.math.pow
 import kotlin.math.sqrt
 import com.example.vocaleyesnew.firestore.FirestoreRepository
+import com.example.vocaleyesnew.utils.ImageProcessingUtils
 
 class FaceRecognitionManager(private val context: Context) {
     private val faceDao = FaceDatabase.getDatabase(context).faceDao()
@@ -32,7 +33,8 @@ class FaceRecognitionManager(private val context: Context) {
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .setMinFaceSize(0.15f)
+            .setMinFaceSize(0.1f) // Reduced from 0.15f to detect smaller faces
+            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL) // Add contour detection
             .enableTracking()
             .build()
         FaceDetection.getClient(options)
@@ -51,22 +53,107 @@ class FaceRecognitionManager(private val context: Context) {
     )
     
     suspend fun detectFaces(bitmap: Bitmap): FaceDetectionResult = suspendCancellableCoroutine { continuation ->
-        val image = InputImage.fromBitmap(bitmap, 0)
-        
-        detector.process(image)
-            .addOnSuccessListener { faces ->
-                continuation.resume(FaceDetectionResult(faces, bitmap))
+        try {
+            // Validate input bitmap
+            if (!ImageProcessingUtils.isValidForFaceDetection(bitmap)) {
+                Log.w("FaceRecognition", "Invalid bitmap for face detection")
+                continuation.resume(FaceDetectionResult(emptyList(), bitmap))
+                return@suspendCancellableCoroutine
             }
-            .addOnFailureListener { e ->
-                Log.e("FaceRecognition", "Face detection failed", e)
-                continuation.resumeWithException(e)
-            }
+
+            // Resize if too large for better performance
+            val resizedBitmap = ImageProcessingUtils.resizeBitmapForProcessing(bitmap, 1024)
+
+            // Enhance image for better face detection
+            val enhancedBitmap = ImageProcessingUtils.enhanceImageForFaceDetection(resizedBitmap)
+
+            val image = InputImage.fromBitmap(enhancedBitmap, 0)
+
+            Log.d("FaceRecognition", "Processing image for face detection - Size: ${enhancedBitmap.width}x${enhancedBitmap.height}")
+
+            detector.process(image)
+                .addOnSuccessListener { faces ->
+                    Log.d("FaceRecognition", "Face detection completed - Found ${faces.size} faces")
+                    faces.forEachIndexed { index, face ->
+                        val bbox = face.boundingBox
+                        val area = bbox.width() * bbox.height()
+                        Log.d("FaceRecognition", "Face $index: BoundingBox=${bbox}, Area=${area}, TrackingId=${face.trackingId}")
+
+                        // Log face quality indicators
+                        face.smilingProbability?.let { smile ->
+                            Log.d("FaceRecognition", "Face $index: Smiling probability: $smile")
+                        }
+                        face.leftEyeOpenProbability?.let { leftEye ->
+                            Log.d("FaceRecognition", "Face $index: Left eye open: $leftEye")
+                        }
+                        face.rightEyeOpenProbability?.let { rightEye ->
+                            Log.d("FaceRecognition", "Face $index: Right eye open: $rightEye")
+                        }
+                    }
+                    continuation.resume(FaceDetectionResult(faces, enhancedBitmap))
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FaceRecognition", "Face detection failed", e)
+                    continuation.resumeWithException(e)
+                }
+        } catch (e: Exception) {
+            Log.e("FaceRecognition", "Error in detectFaces", e)
+            continuation.resumeWithException(e)
+        }
+    }
+
+    /**
+     * Validate face quality for recognition/saving
+     */
+    private fun isValidFaceForProcessing(face: Face): Boolean {
+        val bbox = face.boundingBox
+        val faceArea = bbox.width() * bbox.height()
+
+        // Check minimum face size (at least 50x50 pixels)
+        if (faceArea < 2500) {
+            Log.d("FaceRecognition", "Face too small: area=$faceArea")
+            return false
+        }
+
+        // Check if face is too close to edges (might be cut off)
+        if (bbox.left < 10 || bbox.top < 10) {
+            Log.d("FaceRecognition", "Face too close to edge")
+            return false
+        }
+
+        // Check face orientation (too extreme angles)
+        val rotX = kotlin.math.abs(face.headEulerAngleX)
+        val rotY = kotlin.math.abs(face.headEulerAngleY)
+        val rotZ = kotlin.math.abs(face.headEulerAngleZ)
+
+        if (rotX > 45 || rotY > 45 || rotZ > 30) {
+            Log.d("FaceRecognition", "Face orientation too extreme: rotX=$rotX, rotY=$rotY, rotZ=$rotZ")
+            return false
+        }
+
+        // Check if eyes are open (if available)
+        val leftEyeOpen = face.leftEyeOpenProbability ?: 0.5f
+        val rightEyeOpen = face.rightEyeOpenProbability ?: 0.5f
+
+        if (leftEyeOpen < 0.3f && rightEyeOpen < 0.3f) {
+            Log.d("FaceRecognition", "Both eyes appear closed")
+            return false
+        }
+
+        Log.d("FaceRecognition", "Face validation passed - Area: $faceArea, Rotation: ($rotX, $rotY, $rotZ)")
+        return true
     }
     
     suspend fun saveFace(face: Face, bitmap: Bitmap, personName: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d("FaceRecognition", "Starting to save face for person: $personName")
+
+                // Validate face quality before saving
+                if (!isValidFaceForProcessing(face)) {
+                    Log.w("FaceRecognition", "Face quality validation failed for $personName")
+                    return@withContext false
+                }
 
                 val faceEmbedding = extractFaceFeatures(face)
                 Log.d("FaceRecognition", "Extracted face features: ${faceEmbedding.length} characters")
@@ -108,6 +195,12 @@ class FaceRecognitionManager(private val context: Context) {
     suspend fun recognizeFace(face: Face, context: String = "face_recognition"): FaceRecognitionResult? {
         return withContext(Dispatchers.IO) {
             try {
+                // Validate face quality before recognition
+                if (!isValidFaceForProcessing(face)) {
+                    Log.d("FaceRecognition", "Face quality validation failed for recognition")
+                    return@withContext null
+                }
+
                 val currentFeatures = extractFaceFeatures(face)
                 Log.d("FaceRecognition", "Extracted features for recognition: ${currentFeatures.length} chars")
 
@@ -117,7 +210,7 @@ class FaceRecognitionManager(private val context: Context) {
 
                 var bestMatch: FaceEntity? = null
                 var bestSimilarity = 0.0f
-                val threshold = 0.6f // Lower threshold for better matching
+                val threshold = 0.65f // Slightly higher threshold for better accuracy
 
                 // Compare current face with all stored faces
                 storedFaces.forEach { storedFace ->
