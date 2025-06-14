@@ -24,9 +24,16 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.Executors
+import com.example.vocaleyesnew.facerecognition.FaceRecognitionManager
+import com.example.vocaleyesnew.VoiceRecognitionManager
+import android.graphics.Bitmap
+import android.util.Log
 
 @Composable
-fun BlindModeScreen() {
+fun BlindModeScreen(
+    faceRecognitionManager: FaceRecognitionManager,
+    voiceRecognitionManager: VoiceRecognitionManager
+) {
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val context = LocalContext.current
     LocalLifecycleOwner.current
@@ -74,6 +81,30 @@ fun BlindModeScreen() {
                         coroutineScope.launch {
                             val bitmap = imageProxy.toBitmap()
                             if (bitmap != null) {
+                                // First, check for faces in the image
+                                try {
+                                    val faceResult = faceRecognitionManager.detectFaces(bitmap)
+                                    if (faceResult.faces.isNotEmpty()) {
+                                        faceResult.faces.forEach { face ->
+                                            val recognitionResult = faceRecognitionManager.recognizeFace(face, "navigation")
+                                            recognitionResult?.let { result ->
+                                                if (result.personName != null) {
+                                                    val faceMessage = "I can see ${result.personName} in front of you."
+                                                    voiceRecognitionManager.speak(faceMessage)
+                                                    Log.d("Navigation", "Recognized face: ${result.personName}")
+                                                } else if (result.isNewFace) {
+                                                    val unknownFaceMessage = "I can see an unknown person in front of you."
+                                                    voiceRecognitionManager.speak(unknownFaceMessage)
+                                                    Log.d("Navigation", "Unknown face detected")
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("Navigation", "Face recognition error: ${e.message}")
+                                }
+
+                                // Then proceed with scene analysis
                                 sendFrameToGeminiAI(bitmap, { partialResult ->
                                     analysisResult += " $partialResult"
                                     val newText = analysisResult.substring(lastSpokenIndex)

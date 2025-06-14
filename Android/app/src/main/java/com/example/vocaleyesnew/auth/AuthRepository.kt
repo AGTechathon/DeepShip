@@ -18,10 +18,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
 import java.util.UUID
+import com.example.vocaleyesnew.firestore.FirestoreRepository
 
 class AuthRepository(private val context: Context) {
     private val auth = FirebaseAuth.getInstance()
     private val credentialManager = CredentialManager.create(context)
+    private val firestoreRepository = FirestoreRepository(context)
     
     companion object {
         private const val TAG = "AuthRepository"
@@ -47,6 +49,8 @@ class AuthRepository(private val context: Context) {
             emit(AuthState.Loading)
             val result = auth.signInWithEmailAndPassword(email, password).await()
             result.user?.let { user ->
+                // Create/update user document in Firestore
+                firestoreRepository.createOrUpdateUser()
                 emit(AuthState.Authenticated(user))
             } ?: emit(AuthState.Error("Authentication failed"))
         } catch (e: Exception) {
@@ -72,6 +76,9 @@ class AuthRepository(private val context: Context) {
                     .setDisplayName(fullName)
                     .build()
                 user.updateProfile(profileUpdates).await()
+
+                // Create user document in Firestore
+                firestoreRepository.createOrUpdateUser()
                 emit(AuthState.Authenticated(user))
             } ?: emit(AuthState.Error("Account creation failed"))
         } catch (e: Exception) {
@@ -119,6 +126,8 @@ class AuthRepository(private val context: Context) {
             val authResult = auth.signInWithCredential(googleCredential).await()
             authResult.user?.let { user ->
                 Log.d(TAG, "Google Sign-In successful for user: ${user.email}")
+                // Create/update user document in Firestore
+                firestoreRepository.createOrUpdateUser()
                 emit(AuthState.Authenticated(user))
             } ?: emit(AuthState.Error("Google sign in failed - no user returned"))
 

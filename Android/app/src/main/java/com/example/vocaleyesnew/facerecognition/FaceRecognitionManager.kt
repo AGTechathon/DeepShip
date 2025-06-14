@@ -21,9 +21,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.pow
 import kotlin.math.sqrt
+import com.example.vocaleyesnew.firestore.FirestoreRepository
 
 class FaceRecognitionManager(private val context: Context) {
     private val faceDao = FaceDatabase.getDatabase(context).faceDao()
+    private val firestoreRepository = FirestoreRepository(context)
     
     private val detector: FaceDetector by lazy {
         val options = FaceDetectorOptions.Builder()
@@ -78,6 +80,19 @@ class FaceRecognitionManager(private val context: Context) {
                 val insertedId = faceDao.insertFace(faceEntity)
                 Log.d("FaceRecognition", "Face saved with ID: $insertedId for person: $personName")
 
+                // Also save to Firestore
+                val firestoreResult = firestoreRepository.saveRegisteredFace(
+                    personName = personName.trim(),
+                    faceEmbedding = faceEmbedding,
+                    confidence = 1.0f
+                )
+
+                if (firestoreResult.isSuccess) {
+                    Log.d("FaceRecognition", "Face also saved to Firestore for person: $personName")
+                } else {
+                    Log.w("FaceRecognition", "Failed to save face to Firestore: ${firestoreResult.exceptionOrNull()?.message}")
+                }
+
                 // Verify the face was saved by checking count
                 val totalFaces = faceDao.getFaceCount()
                 Log.d("FaceRecognition", "Total faces in database: $totalFaces")
@@ -90,7 +105,7 @@ class FaceRecognitionManager(private val context: Context) {
         }
     }
     
-    suspend fun recognizeFace(face: Face): FaceRecognitionResult? {
+    suspend fun recognizeFace(face: Face, context: String = "face_recognition"): FaceRecognitionResult? {
         return withContext(Dispatchers.IO) {
             try {
                 val currentFeatures = extractFaceFeatures(face)
@@ -117,7 +132,7 @@ class FaceRecognitionManager(private val context: Context) {
 
                 val boundingBox = face.boundingBox
 
-                if (bestMatch != null && bestSimilarity > threshold) {
+                val result = if (bestMatch != null && bestSimilarity > threshold) {
                     Log.d("FaceRecognition", "Match found: ${bestMatch!!.personName} with confidence $bestSimilarity")
                     FaceRecognitionResult(
                         personName = bestMatch!!.personName,
@@ -133,6 +148,11 @@ class FaceRecognitionManager(private val context: Context) {
                         isNewFace = true
                     )
                 }
+
+                // Log the recognition event to Firestore
+                logRecognitionEvent(result, context)
+
+                result
             } catch (e: Exception) {
                 Log.e("FaceRecognition", "Face recognition failed", e)
                 null
@@ -349,6 +369,40 @@ class FaceRecognitionManager(private val context: Context) {
         }
     }
     
+    /**
+     * Log face recognition event to Firestore
+     */
+    private suspend fun logRecognitionEvent(result: FaceRecognitionResult, context: String) {
+        try {
+            firestoreRepository.logFaceRecognitionEvent(
+                recognizedPersonName = result.personName,
+                confidence = result.confidence,
+                isNewFace = result.isNewFace,
+                detectionContext = context
+            )
+        } catch (e: Exception) {
+            Log.w("FaceRecognition", "Failed to log recognition event: ${e.message}")
+        }
+    }
+
+    /**
+     * Get all registered faces from Firestore
+     */
+    suspend fun getRegisteredFacesFromFirestore(): List<com.example.vocaleyesnew.firestore.RegisteredFace> {
+        return try {
+            val result = firestoreRepository.getRegisteredFaces()
+            if (result.isSuccess) {
+                result.getOrNull() ?: emptyList()
+            } else {
+                Log.e("FaceRecognition", "Failed to get faces from Firestore: ${result.exceptionOrNull()?.message}")
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("FaceRecognition", "Error getting faces from Firestore", e)
+            emptyList()
+        }
+    }
+
     fun cleanup() {
         // Cleanup resources if needed
     }
