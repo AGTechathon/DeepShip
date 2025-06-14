@@ -4,12 +4,23 @@ service cloud.firestore {
     // Allow authenticated users to access their own user document
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
 
-    // Allow authenticated users to access VocalEyes collection
-    match /VocalEyes/{document} {
-      allow read, write: if request.auth != null &&
-        (resource == null || resource.data.userId == request.auth.uid);
+      // Allow users to access their own subcollections
+      match /medicine_alerts/{alertId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /medicine_schedules/{scheduleId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /daily_medicines/{dailyMedicineId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /test_documents/{testId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

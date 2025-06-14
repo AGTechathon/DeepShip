@@ -61,12 +61,9 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
 
     console.log("Loading alerts for user:", user.uid)
 
-    // Query the VocalEyes collection for this user's medicine alerts
-    // Simplified query without orderBy to avoid index requirements
+    // Query the user's personal collection for medicine alerts
     const alertsQuery = query(
-      collection(firestore, "VocalEyes"),
-      where("userId", "==", user.uid),
-      where("type", "==", "medicine_alert")
+      collection(firestore, `users/${user.uid}/medicine_alerts`)
     )
 
     const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
@@ -77,7 +74,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
         const data = doc.data()
         alertsArray.push({
           id: doc.id,
-          userId: data.userId,
+          userId: user.uid, // Use current user's UID
           name: data.name,
           time: data.time,
           dosage: data.dosage,
@@ -145,7 +142,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
           // If alert time has passed, mark as missed immediately
           if (now.getTime() > alertTime.getTime()) {
             try {
-              const alertRef = doc(firestore, "VocalEyes", alert.id)
+              const alertRef = doc(firestore, `users/${user.uid}/medicine_alerts`, alert.id)
               await updateDoc(alertRef, { status: "missed" })
             } catch (error) {
               console.error("Error updating missed alert:", error)
@@ -196,16 +193,15 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
         return
       }
 
-      // Add a test document to the VocalEyes collection
+      // Add a test document to the user's collection
       const testDoc = {
-        userId: user.uid,
         type: "test",
         timestamp: Timestamp.now(),
         message: "Firestore connection test"
       }
 
       console.log("Attempting to add test document:", testDoc)
-      const docRef = await addDoc(collection(firestore, "VocalEyes"), testDoc)
+      const docRef = await addDoc(collection(firestore, `users/${user.uid}/test_documents`), testDoc)
       console.log("Test document added with ID:", docRef.id)
       toast.success("Firestore connection working!")
     } catch (error: any) {
@@ -224,8 +220,6 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       }
 
       const sampleAlert = {
-        userId: user.uid,
-        type: "medicine_alert",
         name: "Sample Medicine",
         time: "14:30",
         dosage: "1 tablet",
@@ -235,7 +229,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
         notes: "Sample medicine alert for testing"
       }
 
-      await addDoc(collection(firestore, "VocalEyes"), sampleAlert)
+      await addDoc(collection(firestore, `users/${user.uid}/medicine_alerts`), sampleAlert)
       toast.success("Sample alert added!")
     } catch (error: any) {
       console.error("Error adding sample alert:", error)
@@ -262,8 +256,6 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       console.log("Attempting to save to Firestore...")
 
       const alert = {
-        userId: user.uid,
-        type: "medicine_alert",
         name: newAlert.name,
         time: newAlert.time,
         dosage: newAlert.dosage,
@@ -273,7 +265,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       }
 
       console.log("Alert to save:", alert)
-      const docRef = await addDoc(collection(firestore, "VocalEyes"), alert)
+      const docRef = await addDoc(collection(firestore, `users/${user.uid}/medicine_alerts`), alert)
       console.log("Alert saved successfully with ID:", docRef.id)
 
       setNewAlert({ name: "", time: "", dosage: "" })
@@ -294,7 +286,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
 
     try {
-      const alertRef = doc(firestore, "VocalEyes", id)
+      const alertRef = doc(firestore, `users/${user.uid}/medicine_alerts`, id)
       await updateDoc(alertRef, {
         status: "taken",
         takenAt: Timestamp.now()

@@ -83,9 +83,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     }
 
     const schedulesQuery = query(
-      collection(firestore, "VocalEyes"),
-      where("userId", "==", user.uid),
-      where("type", "==", "medicine_schedule")
+      collection(firestore, `users/${user.uid}/medicine_schedules`)
     )
 
     const unsubscribe = onSnapshot(schedulesQuery, (snapshot) => {
@@ -95,7 +93,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         const data = doc.data()
         schedulesArray.push({
           id: doc.id,
-          userId: data.userId,
+          userId: user.uid, // Use current user's UID
           name: data.name,
           time: data.time,
           dosage: data.dosage,
@@ -122,9 +120,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     if (!user?.uid) return
 
     const dailyMedicinesQuery = query(
-      collection(firestore, "VocalEyes"),
-      where("userId", "==", user.uid),
-      where("type", "==", "daily_medicine")
+      collection(firestore, `users/${user.uid}/daily_medicines`)
     )
 
     const unsubscribe = onSnapshot(dailyMedicinesQuery, (snapshot) => {
@@ -218,8 +214,6 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
 
     try {
       const schedule = {
-        userId: user.uid,
-        type: "medicine_schedule",
         name: newSchedule.name,
         time: newSchedule.time,
         dosage: newSchedule.dosage,
@@ -229,7 +223,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
         notes: newSchedule.notes
       }
 
-      await addDoc(collection(firestore, "VocalEyes"), schedule)
+      await addDoc(collection(firestore, `users/${user.uid}/medicine_schedules`), schedule)
       setNewSchedule({ name: "", time: "", dosage: "", days: [], notes: "" })
       setIsAddDialogOpen(false)
       toast.success("Medicine schedule added successfully!")
@@ -246,7 +240,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     }
 
     try {
-      const scheduleRef = doc(firestore, "VocalEyes", editingSchedule.id)
+      const scheduleRef = doc(firestore, `users/${user.uid}/medicine_schedules`, editingSchedule.id)
       await updateDoc(scheduleRef, {
         name: newSchedule.name,
         time: newSchedule.time,
@@ -271,7 +265,7 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
     }
 
     try {
-      await deleteDoc(doc(firestore, "VocalEyes", scheduleId))
+      await deleteDoc(doc(firestore, `users/${user.uid}/medicine_schedules`, scheduleId))
       toast.success("Medicine schedule deleted successfully!")
     } catch (error: any) {
       console.error("Error deleting schedule:", error)
@@ -311,18 +305,16 @@ export default function MedicinesSchedule({ user }: MedicinesScheduleProps) {
       if (medicine.id.includes('-') && !medicine.id.startsWith('daily_')) {
         // Create new daily medicine record
         const dailyMedicine = {
-          userId: user.uid,
-          type: "daily_medicine",
           scheduleId: medicine.scheduleId,
           date: medicine.date,
           status: "taken",
           takenAt: Timestamp.now()
         }
 
-        await addDoc(collection(firestore, "VocalEyes"), dailyMedicine)
+        await addDoc(collection(firestore, `users/${user.uid}/daily_medicines`), dailyMedicine)
       } else {
         // Update existing daily medicine record
-        const medicineRef = doc(firestore, "VocalEyes", medicine.id)
+        const medicineRef = doc(firestore, `users/${user.uid}/daily_medicines`, medicine.id)
         await updateDoc(medicineRef, {
           status: "taken",
           takenAt: Timestamp.now()
