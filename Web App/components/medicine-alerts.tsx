@@ -125,7 +125,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     }
   }, [user?.uid])
 
-  // Auto-update missed alerts
+  // Auto-update missed alerts (with 30-minute grace period)
   useEffect(() => {
     const updateMissedAlerts = async () => {
       if (!user?.uid || alerts.length === 0) return
@@ -139,8 +139,12 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
           const alertTime = new Date()
           alertTime.setHours(hours, minutes, 0, 0)
 
-          // If alert time has passed, mark as missed immediately
-          if (now.getTime() > alertTime.getTime()) {
+          // Add 30-minute grace period before marking as missed
+          const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+          const missedThreshold = alertTime.getTime() + gracePeriodMs
+
+          // Only mark as missed if grace period has passed
+          if (now.getTime() > missedThreshold) {
             try {
               const alertRef = doc(firestore, `users/${user.uid}/medicine_alerts`, alert.id)
               await updateDoc(alertRef, { status: "missed" })
@@ -313,15 +317,28 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
     return now > alertTime
   }
 
-  // Helper function to get the actual status of an alert (considering time passed)
+  // Helper function to check if grace period has passed (30 minutes after scheduled time)
+  const isGracePeriodPassed = (timeString: string) => {
+    const now = new Date()
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const alertTime = new Date()
+    alertTime.setHours(hours, minutes, 0, 0)
+
+    const gracePeriodMs = 30 * 60 * 1000 // 30 minutes in milliseconds
+    const missedThreshold = alertTime.getTime() + gracePeriodMs
+
+    return now.getTime() > missedThreshold
+  }
+
+  // Helper function to get the actual status of an alert (considering time passed with grace period)
   const getActualStatus = (alert: MedicineAlert) => {
     // If already taken or explicitly missed, return as is
     if (alert.status === "taken" || alert.status === "missed") {
       return alert.status
     }
 
-    // If it's upcoming but for today and time has passed, it's missed immediately
-    if (alert.status === "upcoming" && isToday(alert.date) && isTimePassed(alert.time)) {
+    // If it's upcoming but for today and grace period has passed, it's missed
+    if (alert.status === "upcoming" && isToday(alert.date) && isGracePeriodPassed(alert.time)) {
       return "missed"
     }
 
@@ -332,7 +349,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
   const todaysAlerts = alerts.filter(alert => isToday(alert.date))
   const upcomingAlerts = todaysAlerts.filter(alert => {
     const actualStatus = getActualStatus(alert)
-    return actualStatus === "upcoming" && !isTimePassed(alert.time)
+    return actualStatus === "upcoming" && !isGracePeriodPassed(alert.time)
   })
   const takenAlerts = todaysAlerts.filter(alert => getActualStatus(alert) === "taken")
   const missedAlerts = todaysAlerts.filter(alert => getActualStatus(alert) === "missed")
@@ -587,7 +604,7 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
                       </Badge>
                     )
                   })()}
-                  {alert.status === "upcoming" && isToday(alert.date) && !isTimePassed(alert.time) && (
+                  {alert.status === "upcoming" && isToday(alert.date) && !isGracePeriodPassed(alert.time) && (
                     <Button size="sm" onClick={() => markAsTaken(alert.id)}>
                       Mark as Taken
                     </Button>
