@@ -5,7 +5,7 @@ import type { User } from "firebase/auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Activity, Footprints, Flame, MapPin, Filter, MoreHorizontal } from "lucide-react"
+import { Footprints, MapPin, Filter, MoreHorizontal } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 
@@ -67,27 +67,7 @@ export default function Dashboard({ user }: DashboardProps) {
         {/* Left Column - Health Stats */}
         <div className="lg:col-span-2 space-y-6">
           {/* Health Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Muscle Recovery */}
-            <Card className="relative overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <Activity className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">Muscle Recovery</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold">72%</div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>+100%</span>
-                    <span>+5.0%</span>
-                  </div>
-                  <Progress value={72} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             {/* Steps */}
             <Card className="relative overflow-hidden">
               <CardContent className="p-6">
@@ -101,24 +81,6 @@ export default function Dashboard({ user }: DashboardProps) {
                   <div className="text-3xl font-bold">1,524</div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <span>+100% This day</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Calories Burned */}
-            <Card className="relative overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-orange-100 rounded-full">
-                    <Flame className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">Calory Burned</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold">129</div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span>+50% This day</span>
                   </div>
                 </div>
               </CardContent>

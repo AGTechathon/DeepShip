@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js App",
-  description: "A Next.js application",
+  title: "Team Deepship",
+  description: "Created by Team Deepship",
   icons: {
     icon: '/favicon.ico',
   },

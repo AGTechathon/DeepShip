@@ -90,23 +90,31 @@ export default function ThreeScene() {
     let time = 0
     const animate = () => {
       requestAnimationFrame(animate)
-      time += 0.01
+      time += 0.016 // ~60fps
 
       if (heartRef.current) {
         // Gentle rotation
-        heartRef.current.rotation.y = Math.sin(time * 0.5) * 0.2
-        heartRef.current.rotation.x = Math.sin(time * 0.3) * 0.1
+        heartRef.current.rotation.y = Math.sin(time * 0.3) * 0.15
+        heartRef.current.rotation.x = Math.sin(time * 0.2) * 0.08
 
-        // Pulsing effect
-        const scale = 1 + Math.sin(time * 3) * 0.1
+        // Realistic heartbeat pulsing effect (lub-dub pattern)
+        const heartbeatFreq = 1.2 // beats per second
+        const beat = Math.sin(time * heartbeatFreq * Math.PI * 2)
+        const doubleBeat = Math.sin(time * heartbeatFreq * Math.PI * 4) * 0.3
+        const scale = 1 + (beat + doubleBeat) * 0.08
         heartRef.current.scale.set(scale, scale, scale)
       }
 
-      // Update pulse mesh
+      // Update pulse mesh with synchronized animation
       if (heartGroup.children[1]) {
-        const pulseScale = 1.1 + Math.sin(time * 4) * 0.2
+        const heartbeatFreq = 1.2
+        const pulseBeat = Math.sin(time * heartbeatFreq * Math.PI * 2)
+        const pulseScale = 1.1 + pulseBeat * 0.15
         heartGroup.children[1].scale.set(pulseScale, pulseScale, pulseScale)
-        ;(heartGroup.children[1].material as THREE.MeshPhongMaterial).opacity = 0.3 + Math.sin(time * 4) * 0.2
+
+        // Fade in/out with heartbeat
+        const opacity = 0.2 + Math.abs(pulseBeat) * 0.3
+        ;(heartGroup.children[1].material as THREE.MeshPhongMaterial).opacity = opacity
       }
 
       renderer.render(scene, camera)
