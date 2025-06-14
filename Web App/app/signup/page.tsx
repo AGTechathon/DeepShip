@@ -74,7 +74,7 @@ export default function SignupPage() {
       await initializeUserInFirestore(userCredential.user)
       
       toast.success("Account Created!", {
-        description: "Welcome to HealthPulse! Your account has been created successfully."
+        description: "Welcome to VocalEyes! Your account has been created successfully."
       })
       router.push('/dashboard')
     } catch (error: any) {
@@ -110,7 +110,7 @@ export default function SignupPage() {
       await initializeUserInFirestore(userCredential.user)
       
       toast.success("Account Created!", {
-        description: "Welcome to HealthPulse! Your account has been created with Google."
+        description: "Welcome to VocalEyes! Your account has been created with Google."
       })
       router.push('/dashboard')
     } catch (error: any) {
@@ -139,7 +139,7 @@ export default function SignupPage() {
               <BarChart3 className="h-8 w-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              HealthPulse
+              VocalEyes
             </h1>
           </div>
           <p className="text-gray-600">Create your account to start monitoring your health.</p>
@@ -149,7 +149,7 @@ export default function SignupPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
             <CardDescription className="text-center">
-              Join HealthPulse and take control of your wellness journey
+              Join VocalEyes and take control of your wellness journey
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

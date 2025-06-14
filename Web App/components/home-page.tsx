@@ -73,7 +73,7 @@ export default function HomePage({ user, googleFitToken }: HomePageProps) {
                 <BarChart3 className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                HealthPulse
+                VocalEyes
               </h1>
             </div>
             <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>

@@ -125,7 +125,7 @@ export default function AuthPage({ setGoogleFitToken }: { setGoogleFitToken: (to
               <Heart className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              HealthPulse
+              VocalEyes
             </h1>
           </div>
           <CardTitle className="text-2xl">{isLogin ? "Welcome Back" : "Create Account"}</CardTitle>
