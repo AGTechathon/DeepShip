@@ -34,15 +34,23 @@ interface LocationData {
 }
 
 const heartRateData = [
-  { time: "9:00", rate: 72 },
-  { time: "9:15", rate: 78 },
-  { time: "9:30", rate: 85 },
-  { time: "9:45", rate: 82 },
-  { time: "10:00", rate: 88 },
-  { time: "10:15", rate: 92 },
-  { time: "10:30", rate: 87 },
-  { time: "10:45", rate: 83 },
+  { time: "08:44", rate: 72 },
+  { time: "08:44", rate: 78 },
+  { time: "08:44", rate: 85 },
+  { time: "08:45", rate: 82 },
+  { time: "08:45", rate: 88 },
+  { time: "08:45", rate: 92 },
+  { time: "08:49", rate: 87 },
+  { time: "08:49", rate: 83 },
 ]
+
+// Calculate initial stats from the 8 data points
+const initialRates = heartRateData.map(d => d.rate)
+const initialStats = {
+  average: Math.round(initialRates.reduce((a, b) => a + b, 0) / initialRates.length),
+  minimum: Math.min(...initialRates),
+  maximum: Math.max(...initialRates)
+}
 
 export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   const { healthData, updateHealthData } = useHealthData()
@@ -50,14 +58,23 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   const [currentHeartRate, setCurrentHeartRate] = useState(78)
   const [heartRateHistory, setHeartRateHistory] = useState(heartRateData)
   const [isRealtimeActive, setIsRealtimeActive] = useState(false)
-  const [heartRateStats, setHeartRateStats] = useState({
-    average: 78,
-    minimum: 65,
-    maximum: 95
-  })
+  const [heartRateStats, setHeartRateStats] = useState(initialStats)
   const [showBluetoothDialog, setShowBluetoothDialog] = useState(false)
   const [dynamicHeartRate, setDynamicHeartRate] = useState(78)
   const [bluetoothStatus, setBluetoothStatus] = useState<boolean | null | undefined>(null)
+
+  // Helper function to calculate stats from exactly 8 readings
+  const calculateStatsFromReadings = (readings: { time: string; rate: number }[]) => {
+    // Ensure we always use exactly 8 readings (last 8 if more than 8)
+    const last8Readings = readings.slice(-8)
+    const rates = last8Readings.map(d => d.rate)
+
+    return {
+      average: Math.round(rates.reduce((a, b) => a + b, 0) / rates.length),
+      minimum: Math.min(...rates),
+      maximum: Math.max(...rates)
+    }
+  }
 
   // Extract data from context (excluding bluetoothStatus since we manage it locally)
   const { fitSteps, fitHeartRate, location } = healthData
@@ -309,13 +326,16 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           try {
             const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
 
-            // Update stats based on recent data
-            const rates = newData.map(d => d.rate)
-            const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
-            const min = Math.min(...rates)
-            const max = Math.max(...rates)
+            // Update stats based on exactly 8 readings
+            const newStats = calculateStatsFromReadings(newData)
+            setHeartRateStats(newStats)
 
-            setHeartRateStats({ average: avg, minimum: min, maximum: max })
+            console.log(`📊 Heart rate stats updated from ${newData.length} readings:`, {
+              average: newStats.average,
+              minimum: newStats.minimum,
+              maximum: newStats.maximum,
+              readings: newData.map(d => d.rate)
+            })
 
             return newData
           } catch (chartError) {
@@ -340,21 +360,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     }
   }, [isRealtimeActive, bluetoothStatus, user?.uid, updateHealthData])
 
-  // Background heart rate updates when Bluetooth is connected (for display purposes)
-  useEffect(() => {
-    // Only update background heart rate when Bluetooth is connected but live mode is off
-    if (isRealtimeActive || bluetoothStatus !== true) return
-
-    const backgroundInterval = setInterval(() => {
-      // Generate slower background updates for display
-      const baseRate = 92.5
-      const variation = Math.sin(Date.now() / 12000) * 10 + Math.random() * 8 - 4
-      const newRate = Math.round(Math.max(75, Math.min(110, baseRate + variation)))
-      setDynamicHeartRate(newRate)
-    }, 3000) // Slower updates when not in live mode
-
-    return () => clearInterval(backgroundInterval)
-  }, [isRealtimeActive, bluetoothStatus])
+  // Background heart rate updates removed - heart rate only updates when live monitoring is active
 
   // Fallback heart rate simulation when Bluetooth is not connected
   useEffect(() => {
@@ -400,13 +406,16 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           try {
             const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
 
-            // Update stats based on recent data
-            const rates = newData.map(d => d.rate)
-            const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
-            const min = Math.min(...rates)
-            const max = Math.max(...rates)
+            // Update stats based on exactly 8 readings
+            const newStats = calculateStatsFromReadings(newData)
+            setHeartRateStats(newStats)
 
-            setHeartRateStats({ average: avg, minimum: min, maximum: max })
+            console.log(`📊 Fallback heart rate stats updated from ${newData.length} readings:`, {
+              average: newStats.average,
+              minimum: newStats.minimum,
+              maximum: newStats.maximum,
+              readings: newData.map(d => d.rate)
+            })
 
             return newData
           } catch (chartError) {
@@ -640,9 +649,11 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
   // Get the appropriate heart rate to display
   const getDisplayHeartRate = () => {
-    if (bluetoothStatus === true) {
+    // Only show dynamic heart rate when live monitoring is actually active
+    if (bluetoothStatus === true && isRealtimeActive) {
       return dynamicHeartRate
     }
+    // Otherwise show static heart rate from context or default
     return fitHeartRate || currentHeartRate
   }
 
