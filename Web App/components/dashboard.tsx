@@ -4,17 +4,19 @@ import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import type { User } from "firebase/auth"
 import { ref, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { database, firestore } from "@/lib/firebase"
+import { doc, onSnapshot } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity, Bluetooth, BluetoothOff } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
-import Heart3D from "@/components/heart-3d"
 import { motion, AnimatePresence } from "framer-motion"
+import "@/lib/bluetooth-test" // Import test utilities for development
 
 
 
@@ -57,6 +59,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   })
   const [fitSteps, setFitSteps] = useState<number | null>(null)
   const [fitHeartRate, setFitHeartRate] = useState<number | null>(null)
+  const [bluetoothStatus, setBluetoothStatus] = useState<boolean | null>(null)
+  const [showBluetoothDialog, setShowBluetoothDialog] = useState(false)
+  const [dynamicHeartRate, setDynamicHeartRate] = useState(78)
 
 
   useEffect(() => {
@@ -67,11 +72,78 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     return () => clearInterval(timer)
   }, [])
 
-
-
-  // Realtime heart rate simulation
+  // Firebase listener for Bluetooth status
   useEffect(() => {
-    if (!isRealtimeActive) return
+    if (!user) return
+
+    const userDocRef = doc(firestore, "users", user.uid)
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data()
+        const bluetooth = userData?.bluetooth
+        setBluetoothStatus(bluetooth)
+
+        // Show popup if Bluetooth is off
+        if (bluetooth === false) {
+          setShowBluetoothDialog(true)
+        }
+      }
+    }, (error) => {
+      console.error("Error listening to user document:", error)
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+
+
+  // Dynamic heart rate based on Bluetooth status
+  useEffect(() => {
+    if (bluetoothStatus === null) return
+
+    const heartRateInterval = setInterval(() => {
+      if (bluetoothStatus === true) {
+        // Bluetooth is on - show dynamic heart rate between 75-95 BPM
+        const baseRate = 85 // Middle of 75-95 range
+        const variation = Math.sin(Date.now() / 8000) * 8 + Math.random() * 6 - 3
+        const newRate = Math.round(Math.max(75, Math.min(95, baseRate + variation)))
+        setDynamicHeartRate(newRate)
+
+        // Also update current heart rate if realtime is active
+        if (isRealtimeActive) {
+          setCurrentHeartRate(newRate)
+
+          // Update chart data (keep last 8 points)
+          const now = new Date()
+          const timeString = now.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+
+          setHeartRateHistory(prev => {
+            const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
+
+            // Update stats based on recent data
+            const rates = newData.map(d => d.rate)
+            const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
+            const min = Math.min(...rates)
+            const max = Math.max(...rates)
+
+            setHeartRateStats({ average: avg, minimum: min, maximum: max })
+
+            return newData
+          })
+        }
+      }
+    }, 1500) // Update every 1.5 seconds for more dynamic feel
+
+    return () => clearInterval(heartRateInterval)
+  }, [bluetoothStatus, isRealtimeActive])
+
+  // Realtime heart rate simulation (fallback when no Bluetooth)
+  useEffect(() => {
+    if (!isRealtimeActive || bluetoothStatus === true) return
 
     const heartRateInterval = setInterval(() => {
       // Simulate realistic heart rate variations (60-100 BPM normal range)
@@ -105,7 +177,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     }, 2000) // Update every 2 seconds
 
     return () => clearInterval(heartRateInterval)
-  }, [isRealtimeActive])
+  }, [isRealtimeActive, bluetoothStatus])
 
   useEffect(() => {
     if (!googleFitToken) return;
@@ -180,6 +252,14 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     if (rate < 60) return { status: "Low", color: "bg-blue-500", textColor: "text-blue-600" }
     if (rate > 100) return { status: "High", color: "bg-red-500", textColor: "text-red-600" }
     return { status: "Normal", color: "bg-green-500", textColor: "text-green-600" }
+  }
+
+  // Get the appropriate heart rate to display
+  const getDisplayHeartRate = () => {
+    if (bluetoothStatus === true) {
+      return dynamicHeartRate
+    }
+    return fitHeartRate || currentHeartRate
   }
 
   // Animation variants
@@ -346,12 +426,12 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                     >
                       <motion.div
                         className="text-3xl font-bold text-red-600"
-                        key={fitHeartRate || currentHeartRate}
+                        key={getDisplayHeartRate()}
                         initial={{ scale: 1.2 }}
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.3 }}
                       >
-                        {fitHeartRate || currentHeartRate}
+                        {getDisplayHeartRate()}
                       </motion.div>
                       <span className="text-sm text-gray-500">BPM</span>
                     </motion.div>
@@ -363,9 +443,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                     >
                       <Badge
                         variant="outline"
-                        className={`text-xs ${getHeartRateStatus(fitHeartRate || currentHeartRate).textColor} border-current`}
+                        className={`text-xs ${getHeartRateStatus(getDisplayHeartRate()).textColor} border-current`}
                       >
-                        {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
+                        {getHeartRateStatus(getDisplayHeartRate()).status}
                       </Badge>
                       <AnimatePresence>
                         {isRealtimeActive && (
@@ -457,14 +537,47 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                       <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500' : 'text-gray-400'}`} />
                     </motion.div>
                     <span className="font-semibold">Live Heart Rate</span>
+                    {/* Bluetooth Status Indicator */}
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.5, type: "spring" }}
+                      className="ml-2"
+                    >
+                      {bluetoothStatus === true ? (
+                        <motion.div
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-full"
+                        >
+                          <Bluetooth className="h-3 w-3 text-blue-600" />
+                          <span className="text-xs text-blue-600 font-medium">Connected</span>
+                        </motion.div>
+                      ) : bluetoothStatus === false ? (
+                        <motion.div
+                          animate={{ opacity: [1, 0.5, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-full cursor-pointer"
+                          onClick={() => setShowBluetoothDialog(true)}
+                        >
+                          <BluetoothOff className="h-3 w-3 text-red-600" />
+                          <span className="text-xs text-red-600 font-medium">Disconnected</span>
+                        </motion.div>
+                      ) : (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
+                          <div className="h-3 w-3 bg-gray-400 rounded-full animate-pulse" />
+                          <span className="text-xs text-gray-600 font-medium">Checking...</span>
+                        </div>
+                      )}
+                    </motion.div>
                   </div>
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 1, type: "spring" }}
                   >
-                    <Badge className={getHeartRateStatus(fitHeartRate || currentHeartRate).color}>
-                      {getHeartRateStatus(fitHeartRate || currentHeartRate).status}
+                    <Badge className={getHeartRateStatus(getDisplayHeartRate()).color}>
+                      {getHeartRateStatus(getDisplayHeartRate()).status}
                     </Badge>
                   </motion.div>
                 </motion.div>
@@ -474,31 +587,17 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 1.1 }}
                 >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <motion.div
-                        className="text-3xl font-bold text-red-600"
-                        key={fitHeartRate || currentHeartRate}
-                        initial={{ scale: 1.3, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        {fitHeartRate || currentHeartRate}
-                      </motion.div>
-                      <div className="text-sm text-gray-500">BPM</div>
-                    </div>
-                    {/* 3D Heart Animation */}
+                  <div>
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 1.2, duration: 0.6 }}
+                      className="text-3xl font-bold text-red-600"
+                      key={getDisplayHeartRate()}
+                      initial={{ scale: 1.3, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.4 }}
                     >
-                      <Heart3D
-                        heartRate={fitHeartRate || currentHeartRate}
-                        isActive={isRealtimeActive}
-                        size={80}
-                      />
+                      {getDisplayHeartRate()}
                     </motion.div>
+                    <div className="text-sm text-gray-500">BPM</div>
                   </div>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
@@ -538,52 +637,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                   )}
                 </AnimatePresence>
               </motion.div>
+    
 
-              {/* 3D Heart Display - Main Feature */}
-              <motion.div
-                className="flex justify-center mb-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.3 }}
-              >
-                <motion.div
-                  className="relative"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Heart3D
-                    heartRate={fitHeartRate || currentHeartRate}
-                    isActive={isRealtimeActive}
-                    size={160}
-                  />
-                  {/* Heart Rate Overlay */}
-                  <motion.div
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.5 }}
-                  >
-                    <motion.div
-                      className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg border"
-                      animate={isRealtimeActive ? { scale: [1, 1.05, 1] } : {}}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    >
-                      <div className="text-center">
-                        <motion.div
-                          className="text-lg font-bold text-red-600"
-                          key={fitHeartRate || currentHeartRate}
-                          initial={{ scale: 1.2 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          {fitHeartRate || currentHeartRate}
-                        </motion.div>
-                        <div className="text-xs text-gray-500">BPM</div>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                </motion.div>
-              </motion.div>
+
 
               {/* Heart Rate Stats */}
               <motion.div
@@ -738,6 +794,82 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
         </motion.div>
       </motion.div>
+
+      {/* Bluetooth Connection Dialog */}
+      <Dialog open={showBluetoothDialog} onOpenChange={setShowBluetoothDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex items-center justify-center mb-4"
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.1, 1],
+                  rotate: [0, -10, 10, 0]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="p-4 bg-blue-100 rounded-full"
+              >
+                <BluetoothOff className="h-12 w-12 text-blue-600" />
+              </motion.div>
+            </motion.div>
+            <DialogTitle className="text-center text-xl font-semibold">
+              Connect to Watch
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600">
+              Your smartwatch is not connected. Please enable Bluetooth and connect your watch to monitor real-time heart rate data.
+            </DialogDescription>
+          </DialogHeader>
+          <motion.div
+            className="flex flex-col gap-3 mt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowBluetoothDialog(false)}
+              >
+                <Bluetooth className="h-4 w-4 mr-2" />
+                Connect Watch
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowBluetoothDialog(false)}
+              >
+                Dismiss
+              </Button>
+            </motion.div>
+          </motion.div>
+          <motion.div
+            className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> Without a connected watch, heart rate data will be simulated for demonstration purposes.
+            </p>
+          </motion.div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
