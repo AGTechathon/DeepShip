@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Filter, Download, FileText, Activity, Heart, Moon, MapPin } from "lucide-react"
 import { generateHealthReport } from "@/lib/pdf-generator"
 import { motion, AnimatePresence } from "framer-motion"
+import { useHealthData } from "@/contexts/health-data-context"
 
 interface HealthReportsProps {
   user: User
@@ -72,29 +73,15 @@ interface MedicineAlert {
 }
 
 export default function HealthReports({ user }: HealthReportsProps) {
+  const { healthData } = useHealthData()
   const [selectedDate, setSelectedDate] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [medicineAlerts, setMedicineAlerts] = useState<MedicineAlert[]>([])
-  const [location, setLocation] = useState<LocationData>({
-    lat: null,
-    lng: null,
-    lastUpdated: null,
-  })
 
-  // Load live location from Firebase Realtime Database
-  useEffect(() => {
-    if (!user?.uid) return
+  // Extract data from context
+  const { location, fitSteps, dailySteps, fitHeartRate, currentHeartRate } = healthData
 
-    const locationRef = ref(database, `users/${user.uid}/liveLocation`)
-    const unsubscribe = onValue(locationRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        setLocation(data)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [user?.uid])
+  // Location data is now handled by HealthDataContext
 
   // Load medicine alerts from Firestore (using correct collection path)
   useEffect(() => {
@@ -166,8 +153,35 @@ export default function HealthReports({ user }: HealthReportsProps) {
       return "Location not available"
     }
 
-    // For now, show coordinates. In a real app, you'd reverse geocode to get address
+    // Use address from context if available, otherwise show city, state
+    if (location.address) {
+      return location.address
+    }
+
+    if (location.city && location.state) {
+      return `${location.city}, ${location.state}`
+    }
+
+    // Fallback to coordinates
     return `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+  }
+
+  // Helper function to get short location display (city, state)
+  const getShortLocationDisplay = () => {
+    if (!location.lat || !location.lng) {
+      return "Not available"
+    }
+
+    if (location.city && location.state) {
+      return `${location.city}, ${location.state}`
+    }
+
+    if (location.city) {
+      return location.city
+    }
+
+    // Fallback to coordinates
+    return `${location.lat.toFixed(2)}, ${location.lng.toFixed(2)}`
   }
 
   // Get current health data including real data from Firebase
@@ -201,9 +215,9 @@ export default function HealthReports({ user }: HealthReportsProps) {
     ]
 
     return {
-      steps: 8420,
+      steps: fitSteps || dailySteps || 8420,
       heartRate: {
-        average: 78,
+        average: fitHeartRate || currentHeartRate || 78,
         minimum: 48,
         maximum: 118
       },
@@ -353,8 +367,9 @@ export default function HealthReports({ user }: HealthReportsProps) {
                   <motion.p
                     className="text-2xl font-bold"
                     variants={numberCountVariants}
+                    key={fitSteps || dailySteps}
                   >
-                    8,420
+                    {(fitSteps || dailySteps || 8420).toLocaleString()}
                   </motion.p>
                 </div>
               </motion.div>
@@ -391,8 +406,9 @@ export default function HealthReports({ user }: HealthReportsProps) {
                   <motion.p
                     className="text-2xl font-bold"
                     variants={numberCountVariants}
+                    key={fitHeartRate || currentHeartRate}
                   >
-                    78 BPM
+                    {fitHeartRate || currentHeartRate || 78} BPM
                   </motion.p>
                 </div>
               </motion.div>
@@ -430,8 +446,9 @@ export default function HealthReports({ user }: HealthReportsProps) {
                     className="text-sm font-bold"
                     title={getLocationDisplay()}
                     variants={numberCountVariants}
+                    key={location.city || location.lat}
                   >
-                    {location.lat && location.lng ? getLocationDisplay() : "Not available"}
+                    {getShortLocationDisplay()}
                   </motion.p>
                 </div>
               </motion.div>

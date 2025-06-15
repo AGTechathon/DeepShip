@@ -11,6 +11,7 @@ import Dashboard from "@/components/dashboard"
 import HealthReports from "@/components/health-reports"
 import MedicineAlerts from "@/components/medicine-alerts"
 import LiveLocation from "@/components/live-location"
+import { HealthDataProvider } from "@/contexts/health-data-context"
 
 interface HomePageProps {
   user: User
@@ -54,7 +55,8 @@ export default function HomePage({ user, googleFitToken }: HomePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+    <HealthDataProvider user={user} googleFitToken={googleFitToken}>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
       {/* Mobile menu overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -176,6 +178,7 @@ export default function HomePage({ user, googleFitToken }: HomePageProps) {
         {/* Page content */}
         <main className="p-6">{renderContent()}</main>
       </div>
-    </div>
+      </div>
+    </HealthDataProvider>
   )
 }

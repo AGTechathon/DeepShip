@@ -17,6 +17,7 @@ import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
 import { motion, AnimatePresence } from "framer-motion"
 import "@/lib/bluetooth-test" // Import test utilities for development
+import { useHealthData } from "@/contexts/health-data-context"
 
 
 
@@ -43,6 +44,7 @@ const heartRateData = [
 ]
 
 export default function Dashboard({ user, googleFitToken }: DashboardProps) {
+  const { healthData, updateHealthData } = useHealthData()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [currentHeartRate, setCurrentHeartRate] = useState(78)
   const [heartRateHistory, setHeartRateHistory] = useState(heartRateData)
@@ -52,16 +54,11 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     minimum: 65,
     maximum: 95
   })
-  const [location, setLocation] = useState<LocationData>({
-    lat: 17.613409, // Default coordinates
-    lng: 75.891103,
-    lastUpdated: "6/14/2025, 5:55:59 PM",
-  })
-  const [fitSteps, setFitSteps] = useState<number | null>(null)
-  const [fitHeartRate, setFitHeartRate] = useState<number | null>(null)
-  const [bluetoothStatus, setBluetoothStatus] = useState<boolean | null>(null)
   const [showBluetoothDialog, setShowBluetoothDialog] = useState(false)
   const [dynamicHeartRate, setDynamicHeartRate] = useState(78)
+
+  // Extract data from context
+  const { fitSteps, fitHeartRate, bluetoothStatus, location } = healthData
 
 
   useEffect(() => {
@@ -72,28 +69,12 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Firebase listener for Bluetooth status
+  // Firebase listener for Bluetooth status (handled by context, but we still need popup logic)
   useEffect(() => {
-    if (!user) return
-
-    const userDocRef = doc(firestore, "users", user.uid)
-    const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        const userData = doc.data()
-        const bluetooth = userData?.bluetooth
-        setBluetoothStatus(bluetooth)
-
-        // Show popup if Bluetooth is off
-        if (bluetooth === false) {
-          setShowBluetoothDialog(true)
-        }
-      }
-    }, (error) => {
-      console.error("Error listening to user document:", error)
-    })
-
-    return () => unsubscribe()
-  }, [user])
+    if (bluetoothStatus === false) {
+      setShowBluetoothDialog(true)
+    }
+  }, [bluetoothStatus])
 
 
 
@@ -113,6 +94,12 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
       // Update both dynamic and current heart rate
       setDynamicHeartRate(newRate)
       setCurrentHeartRate(newRate)
+
+      // Update context
+      updateHealthData({
+        dynamicHeartRate: newRate,
+        currentHeartRate: newRate
+      })
 
       // Update chart data (keep last 8 points)
       const now = new Date()
@@ -253,8 +240,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
         // Parse steps
         const steps = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('step_count'))?.point?.[0]?.value?.[0]?.intVal;
-        setFitSteps(steps || 0);
-        
+
         // Parse heart rate (average)
         const heartPoints = data.bucket?.[0]?.dataset?.find((ds: any) => ds.dataSourceId?.includes('heart_rate'))?.point;
         let avgHeart = null;
@@ -262,7 +248,14 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           const sum = heartPoints.reduce((acc: number, pt: any) => acc + (pt.value?.[0]?.fpVal || 0), 0);
           avgHeart = Math.round(sum / heartPoints.length);
         }
-        setFitHeartRate(avgHeart);
+
+        // Update context with new data
+        updateHealthData({
+          fitSteps: steps || 0,
+          dailySteps: steps || healthData.dailySteps,
+          fitHeartRate: avgHeart,
+          currentHeartRate: avgHeart || healthData.currentHeartRate
+        });
 
       } catch (error) {
         console.error('Error fetching Google Fit data:', error);
