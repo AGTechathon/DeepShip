@@ -5,10 +5,11 @@ This guide explains how to test the Bluetooth-based heart rate functionality in 
 ## 🎯 Overview
 
 The dashboard now includes Bluetooth status monitoring that:
-- Checks Firebase Firestore for user's Bluetooth status
-- Shows dynamic heart rate (75-95 BPM) when Bluetooth is ON
-- Displays a popup dialog when Bluetooth is OFF
-- Provides visual indicators for connection status
+- Checks Firebase Firestore for user's Bluetooth status when "Start Live" is clicked
+- Shows dynamic heart rate (75-95 BPM) when Bluetooth is ON and live monitoring is active
+- Displays a popup dialog "Connect to watch" when trying to start live monitoring with Bluetooth OFF
+- Provides visual indicators for connection status on Start Live buttons
+- Only allows live heart rate monitoring when Bluetooth is connected
 
 ## 🔧 Testing Setup
 
@@ -30,13 +31,22 @@ The system is configured to monitor user: `rXbXkdGAHugddhy6hpu0jC9zRBq2`
 4. Use these commands:
 
 ```javascript
+// Test the Start Live button functionality (recommended)
+testStartLiveButton()
+
+// Quick enable Bluetooth for testing
+enableBluetoothForTesting()
+
+// Quick disable Bluetooth to test popup
+disableBluetoothForTesting()
+
 // Test Bluetooth toggle functionality
 testBluetoothToggle()
 
 // Set Bluetooth to ON (true)
 setUserBluetoothStatus("rXbXkdGAHugddhy6hpu0jC9zRBq2", true)
 
-// Set Bluetooth to OFF (false) 
+// Set Bluetooth to OFF (false)
 setUserBluetoothStatus("rXbXkdGAHugddhy6hpu0jC9zRBq2", false)
 
 // Check current Bluetooth status
@@ -54,22 +64,30 @@ getUserBluetoothStatus("rXbXkdGAHugddhy6hpu0jC9zRBq2")
 
 ## 📱 Expected Behavior
 
-### When Bluetooth = true (Connected)
-- ✅ Heart rate displays between 75-95 BPM
+### When "Start Live" is clicked with Bluetooth = true (Connected)
+- ✅ Live monitoring starts immediately
+- ✅ Heart rate displays between 75-95 BPM in real-time
 - ✅ Dynamic heart rate changes every 1.5 seconds
 - ✅ Blue "Connected" indicator appears
-- ✅ No popup dialog shown
-- ✅ Heart rate follows realistic human patterns
+- ✅ Chart updates with live data
+- ✅ Console logs: "Starting live heart rate monitoring with Bluetooth connection"
 
-### When Bluetooth = false (Disconnected)
-- ❌ Popup dialog appears: "Connect to Watch"
-- ❌ Red "Disconnected" indicator shows
-- ❌ Heart rate falls back to simulation mode
-- ❌ Clicking indicator reopens dialog
+### When "Start Live" is clicked with Bluetooth = false (Disconnected)
+- ❌ Popup dialog appears: "Connect to watch"
+- ❌ Live monitoring does NOT start
+- ❌ Red "Disconnected" indicator shows on Start Live button
+- ❌ Button shows BluetoothOff icon and "(Bluetooth Required)" text
+- ❌ Tooltip shows: "Connect your smartwatch via Bluetooth to start live monitoring"
 
-### When Bluetooth = null (Unknown)
-- ⏳ "Checking..." indicator with loading animation
+### When "Start Live" is clicked with Bluetooth = null (Unknown)
+- ⏳ Nothing happens (button click ignored)
+- ⏳ Console logs: "Bluetooth status is still loading..."
 - ⏳ System waits for Firebase data
+
+### Background Behavior (when live monitoring is OFF)
+- 🔵 **Bluetooth ON**: Background heart rate updates every 3 seconds (75-95 BPM)
+- 🔴 **Bluetooth OFF**: Static heart rate display
+- ⚪ **Bluetooth NULL**: Static heart rate display
 
 ## 🎨 Visual Indicators
 

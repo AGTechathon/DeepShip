@@ -97,53 +97,76 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
 
 
-  // Dynamic heart rate based on Bluetooth status
+  // Live heart rate monitoring when Bluetooth is connected and live mode is active
   useEffect(() => {
-    if (bluetoothStatus === null) return
+    // Only run when live monitoring is active and Bluetooth is connected
+    if (!isRealtimeActive || bluetoothStatus !== true) return
+
+    console.log("Starting live heart rate monitoring with Bluetooth connection")
 
     const heartRateInterval = setInterval(() => {
-      if (bluetoothStatus === true) {
-        // Bluetooth is on - show dynamic heart rate between 75-95 BPM
-        const baseRate = 85 // Middle of 75-95 range
-        const variation = Math.sin(Date.now() / 8000) * 8 + Math.random() * 6 - 3
-        const newRate = Math.round(Math.max(75, Math.min(95, baseRate + variation)))
-        setDynamicHeartRate(newRate)
+      // Generate dynamic heart rate between 75-95 BPM (Bluetooth connected range)
+      const baseRate = 85 // Middle of 75-95 range
+      const variation = Math.sin(Date.now() / 8000) * 8 + Math.random() * 6 - 3
+      const newRate = Math.round(Math.max(75, Math.min(95, baseRate + variation)))
 
-        // Also update current heart rate if realtime is active
-        if (isRealtimeActive) {
-          setCurrentHeartRate(newRate)
+      // Update both dynamic and current heart rate
+      setDynamicHeartRate(newRate)
+      setCurrentHeartRate(newRate)
 
-          // Update chart data (keep last 8 points)
-          const now = new Date()
-          const timeString = now.toLocaleTimeString('en-US', {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+      // Update chart data (keep last 8 points)
+      const now = new Date()
+      const timeString = now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
 
-          setHeartRateHistory(prev => {
-            const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
+      setHeartRateHistory(prev => {
+        const newData = [...prev.slice(1), { time: timeString, rate: newRate }]
 
-            // Update stats based on recent data
-            const rates = newData.map(d => d.rate)
-            const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
-            const min = Math.min(...rates)
-            const max = Math.max(...rates)
+        // Update stats based on recent data
+        const rates = newData.map(d => d.rate)
+        const avg = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
+        const min = Math.min(...rates)
+        const max = Math.max(...rates)
 
-            setHeartRateStats({ average: avg, minimum: min, maximum: max })
+        setHeartRateStats({ average: avg, minimum: min, maximum: max })
 
-            return newData
-          })
-        }
-      }
-    }, 1500) // Update every 1.5 seconds for more dynamic feel
+        return newData
+      })
 
-    return () => clearInterval(heartRateInterval)
-  }, [bluetoothStatus, isRealtimeActive])
+      console.log(`Live heart rate updated: ${newRate} BPM (Bluetooth connected)`)
+    }, 1500) // Update every 1.5 seconds for responsive feel
 
-  // Realtime heart rate simulation (fallback when no Bluetooth)
+    return () => {
+      clearInterval(heartRateInterval)
+      console.log("Live heart rate monitoring stopped")
+    }
+  }, [isRealtimeActive, bluetoothStatus])
+
+  // Background heart rate updates when Bluetooth is connected (for display purposes)
   useEffect(() => {
-    if (!isRealtimeActive || bluetoothStatus === true) return
+    // Only update background heart rate when Bluetooth is connected but live mode is off
+    if (isRealtimeActive || bluetoothStatus !== true) return
+
+    const backgroundInterval = setInterval(() => {
+      // Generate slower background updates for display
+      const baseRate = 85
+      const variation = Math.sin(Date.now() / 12000) * 6 + Math.random() * 4 - 2
+      const newRate = Math.round(Math.max(75, Math.min(95, baseRate + variation)))
+      setDynamicHeartRate(newRate)
+    }, 3000) // Slower updates when not in live mode
+
+    return () => clearInterval(backgroundInterval)
+  }, [isRealtimeActive, bluetoothStatus])
+
+  // Fallback heart rate simulation when Bluetooth is not connected
+  useEffect(() => {
+    // Only run when live monitoring is active but Bluetooth is not connected
+    if (!isRealtimeActive || bluetoothStatus === true || bluetoothStatus === null) return
+
+    console.log("Starting fallback heart rate simulation (Bluetooth not connected)")
 
     const heartRateInterval = setInterval(() => {
       // Simulate realistic heart rate variations (60-100 BPM normal range)
@@ -174,9 +197,14 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
         return newData
       })
+
+      console.log(`Fallback heart rate updated: ${newRate} BPM (Bluetooth not connected)`)
     }, 2000) // Update every 2 seconds
 
-    return () => clearInterval(heartRateInterval)
+    return () => {
+      clearInterval(heartRateInterval)
+      console.log("Fallback heart rate simulation stopped")
+    }
   }, [isRealtimeActive, bluetoothStatus])
 
   useEffect(() => {
@@ -245,6 +273,30 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   }, [googleFitToken]);
 
   const toggleRealtime = () => {
+    // If trying to start live monitoring, check Bluetooth status first
+    if (!isRealtimeActive) {
+      // Check if Bluetooth status is available
+      if (bluetoothStatus === null) {
+        // Still loading Bluetooth status
+        console.log("Bluetooth status is still loading...")
+        return
+      }
+
+      if (bluetoothStatus === false) {
+        // Bluetooth is off, show popup
+        setShowBluetoothDialog(true)
+        return
+      }
+
+      // Bluetooth is on, proceed with starting live monitoring
+      if (bluetoothStatus === true) {
+        console.log("Bluetooth connected - Starting live heart rate monitoring")
+        setIsRealtimeActive(true)
+        return
+      }
+    }
+
+    // If stopping live monitoring or Bluetooth is connected, toggle normally
     setIsRealtimeActive(!isRealtimeActive)
   }
 
@@ -411,9 +463,27 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                         onClick={toggleRealtime}
                         variant={isRealtimeActive ? "destructive" : "outline"}
                         size="sm"
-                        className="h-8 px-3 text-xs"
+                        className={`h-8 px-3 text-xs ${
+                          !isRealtimeActive && bluetoothStatus === false
+                            ? "border-red-300 text-red-500 hover:border-red-400"
+                            : ""
+                        }`}
+                        title={
+                          !isRealtimeActive && bluetoothStatus === false
+                            ? "Bluetooth connection required for live monitoring"
+                            : ""
+                        }
                       >
                         {isRealtimeActive ? "Stop" : "Start"}
+                        {!isRealtimeActive && bluetoothStatus === false && (
+                          <motion.div
+                            className="ml-1"
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          >
+                            <BluetoothOff className="h-3 w-3" />
+                          </motion.div>
+                        )}
                       </Button>
                     </motion.div>
                   </motion.div>
@@ -607,15 +677,42 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                       onClick={toggleRealtime}
                       variant={isRealtimeActive ? "destructive" : "default"}
                       size="sm"
-                      className="flex items-center gap-2"
+                      className={`flex items-center gap-2 ${
+                        !isRealtimeActive && bluetoothStatus === false
+                          ? "border-red-300 text-red-600 hover:bg-red-50"
+                          : ""
+                      }`}
+                      title={
+                        !isRealtimeActive && bluetoothStatus === false
+                          ? "Connect your smartwatch via Bluetooth to start live monitoring"
+                          : ""
+                      }
                     >
                       <motion.div
                         animate={isRealtimeActive ? { rotate: 360 } : {}}
                         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                       >
-                        <Activity className="h-4 w-4" />
+                        {!isRealtimeActive && bluetoothStatus === false ? (
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          >
+                            <BluetoothOff className="h-4 w-4" />
+                          </motion.div>
+                        ) : (
+                          <Activity className="h-4 w-4" />
+                        )}
                       </motion.div>
                       {isRealtimeActive ? "Stop" : "Start"} Live
+                      {!isRealtimeActive && bluetoothStatus === false && (
+                        <motion.span
+                          className="text-xs opacity-75"
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          (Bluetooth Required)
+                        </motion.span>
+                      )}
                     </Button>
                   </motion.div>
                 </motion.div>
@@ -824,7 +921,8 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
               Connect to Watch
             </DialogTitle>
             <DialogDescription className="text-center text-gray-600">
-              Your smartwatch is not connected. Please enable Bluetooth and connect your watch to monitor real-time heart rate data.
+              To start live heart rate monitoring, please connect your smartwatch via Bluetooth.
+              Live monitoring requires an active Bluetooth connection to display real-time heart rate data (75-95 BPM).
             </DialogDescription>
           </DialogHeader>
           <motion.div

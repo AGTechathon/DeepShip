@@ -66,17 +66,17 @@ export const getUserBluetoothStatus = async (userId: string) => {
  */
 export const testBluetoothToggle = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
   console.log("Testing Bluetooth status toggle...")
-  
+
   // Get current status
   const currentStatus = await getUserBluetoothStatus(userId)
   console.log("Current status:", currentStatus)
-  
+
   if (currentStatus.success) {
     // Toggle the status
     const newStatus = !currentStatus.bluetoothStatus
     const result = await setUserBluetoothStatus(userId, newStatus)
     console.log("Toggle result:", result)
-    
+
     // Wait a moment and check again
     setTimeout(async () => {
       const updatedStatus = await getUserBluetoothStatus(userId)
@@ -89,9 +89,62 @@ export const testBluetoothToggle = async (userId: string = "rXbXkdGAHugddhy6hpu0
   }
 }
 
+/**
+ * Test the Start Live button functionality
+ * This function helps test the specific requirement
+ */
+export const testStartLiveButton = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
+  console.log("🧪 Testing Start Live Button Functionality")
+  console.log("==========================================")
+
+  // Test 1: Set Bluetooth to false and try to start live
+  console.log("📱 Test 1: Setting Bluetooth to FALSE")
+  await setUserBluetoothStatus(userId, false)
+  console.log("✅ Bluetooth set to false - Click 'Start Live' button now")
+  console.log("Expected: Popup should appear saying 'Connect to watch'")
+
+  // Wait 5 seconds then test with Bluetooth on
+  setTimeout(async () => {
+    console.log("\n📱 Test 2: Setting Bluetooth to TRUE")
+    await setUserBluetoothStatus(userId, true)
+    console.log("✅ Bluetooth set to true - Click 'Start Live' button now")
+    console.log("Expected: Live monitoring should start with heart rate 75-95 BPM")
+
+    // Wait another 5 seconds then show current status
+    setTimeout(async () => {
+      const status = await getUserBluetoothStatus(userId)
+      console.log("\n📊 Current Status:", status)
+      console.log("🔄 You can now test the Start Live button functionality!")
+    }, 2000)
+  }, 5000)
+}
+
+/**
+ * Quick test to set Bluetooth ON for live monitoring
+ */
+export const enableBluetoothForTesting = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
+  console.log("🔵 Enabling Bluetooth for testing...")
+  const result = await setUserBluetoothStatus(userId, true)
+  console.log("✅ Bluetooth enabled - You can now start live monitoring")
+  return result
+}
+
+/**
+ * Quick test to set Bluetooth OFF to test popup
+ */
+export const disableBluetoothForTesting = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
+  console.log("🔴 Disabling Bluetooth for testing...")
+  const result = await setUserBluetoothStatus(userId, false)
+  console.log("❌ Bluetooth disabled - Click 'Start Live' to see popup")
+  return result
+}
+
 // Make functions available globally for testing
 if (typeof window !== "undefined") {
   (window as any).testBluetoothToggle = testBluetoothToggle
+  (window as any).testStartLiveButton = testStartLiveButton
+  (window as any).enableBluetoothForTesting = enableBluetoothForTesting
+  (window as any).disableBluetoothForTesting = disableBluetoothForTesting
   (window as any).setUserBluetoothStatus = setUserBluetoothStatus
   (window as any).getUserBluetoothStatus = getUserBluetoothStatus
 }
