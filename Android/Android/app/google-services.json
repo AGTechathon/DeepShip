@@ -1,0 +1,44 @@
+{
+  "project_info": {
+    "project_number": "391075985944",
+    "firebase_url": "https://ag-hackathon-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "ag-hackathon",
+    "storage_bucket": "ag-hackathon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:391075985944:android:6335a53da0655e3e6e616d",
+        "android_client_info": {
+          "package_name": "com.example.vocaleyesnew"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "391075985944-jd891lr9j6t21k03jg857s9f1pas5gli.apps.googleusercontent.com",
+          "client_type": 3
+        },
+        {
+          "client_id": "391075985944-temp-android-client.apps.googleusercontent.com",
+          "client_type": 1
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDQeK1akZo21NpCwGLF8TaDcSAZMtmsts"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "391075985944-jd891lr9j6t21k03jg857s9f1pas5gli.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
