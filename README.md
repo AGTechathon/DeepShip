@@ -1,18 +1,18 @@
 Deployed Link:- https://vocal-eyes.vercel.app/
 
-# 🧠 VocalEyes – Empowering Vision Through AI
+#VocalEyes – Empowering Vision Through AI
 
 **VocalEyes** is an AI-powered accessibility platform designed to assist blind and visually impaired individuals. It features a powerful Android mobile application and a responsive WebApp for health monitoring and remote care.
 
 ---
 
-## 📱 VocalEyes Android App
+## VocalEyes Android App
 
-### 🌟 Overview
+### Overview
 
 VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, and **AI assistants** to offer real-time support to visually impaired users. It's designed with a voice-first philosophy, enabling hands-free, seamless interaction.
 
-### 🎯 Core Mission
+### Core Mission
 
 * Empower users through independence
 * Enhance environmental awareness
@@ -21,13 +21,13 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-### 🏗 Architecture & Technologies
+### Architecture & Technologies
 
 * **Platform**: Android (Kotlin, Jetpack Compose)
 * **Pattern**: MVVM (Model-View-ViewModel)
 * **Min SDK**: 24 (Android 7.0) | **Target SDK**: 34 (Android 14)
 
-#### 🔧 Core Tech Stack
+#### Core Tech Stack
 
 * **Object Detection**: YOLOv8 with TensorFlow Lite
 * **Text Recognition**: Google ML Kit OCR
@@ -36,10 +36,11 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 * **Text-to-Speech**: Android TTS
 * **Authentication**: Firebase Auth
 * **Camera**: CameraX
-
 ---
-
-### 🚀 Features
+### System Architecture
+![Image](https://github.com/user-attachments/assets/20d1242f-c51b-4572-9bbf-a369f1d56015)
+---
+### Features
 
 #### 🎤 Voice Recognition
 
@@ -53,7 +54,7 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 * Real-time detection with voice feedback
 * Pause/resume with voice command
 
-#### 🧭 Navigation Assistance
+#### Navigation Assistance
 
 * Environmental description
 * Obstacle and hazard detection
@@ -66,20 +67,20 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 * Document reading with sentence formatting
 * Natural text-to-speech playback
 
-#### 💰 Currency Detection
+#### Currency Detection
 
 * Multiple currency support
 * High-confidence denomination detection
 * Instant voice announcements
 
-#### 🤖 AI Assistant
+#### AI Assistant
 
 * Natural conversation interface
 * Hands-free interaction using Google Gemini
 * Context-aware responses
 * Personalized experiences
 
-#### 🔐 Authentication
+#### Authentication
 
 * Firebase-based login/signup
 * Google Authentication
@@ -87,7 +88,7 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-### 🎨 UI & Accessibility
+### UI & Accessibility
 
 * **Design Language**: Material 3 + Gradient Backgrounds
 * **Accessibility First**: TalkBack, semantic labels, large touch targets
@@ -95,7 +96,7 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-### 🛡 Security & Privacy
+### Security & Privacy
 
 * All AI and camera processing is **on-device**
 * **No images stored** or uploaded
@@ -104,7 +105,7 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-### ♿ Accessibility Features
+### Accessibility Features
 
 * TalkBack, screen reader, and semantic labeling
 * Voice command shortcuts and feedback
@@ -113,7 +114,7 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-### 🚀 Planned Features
+### Planned Features
 
 * Offline AI Assistant
 * IoT & Smart Home Integration
@@ -123,9 +124,9 @@ VocalEyes leverages cutting-edge **computer vision**, **speech recognition**, an
 
 ---
 
-## 🌐 VocalEyes WebApp
+## VocalEyes WebApp
 
-### 📦 Overview
+### Overview
 
 The **WebApp** provides a dashboard for monitoring health data, issuing medicine alerts, viewing live location, and managing user reports. It's designed for caregivers, medical professionals, and guardians.
 
@@ -140,32 +141,32 @@ The **WebApp** provides a dashboard for monitoring health data, issuing medicine
 
 ---
 
-### 🔍 WebApp Modules
+### WebApp Modules
 
-#### 🔐 Login & Signup
+#### Login & Signup
 
 * Firebase Authentication
 * Form validation and error handling
 * Secure sessions and logout
 
-#### 🧭 Dashboard
+#### Dashboard
 
 * User profile display
 * Overview of vital signs or activity
 * Quick access to other modules
 
-#### 💊 Medicine Alerts
+#### Medicine Alerts
 
 * Daily/weekly medicine reminders
 * Alert logs and update controls
 
-#### 📑 Health Reports
+#### Health Reports
 
 * Graphs and charts of health metrics
 * Exportable/downloadable reports
 * Date-based filtering and summaries
 
-#### 📍 Live Location
+#### Live Location
 
 * Real-time map integration
 * Location logs
@@ -173,7 +174,7 @@ The **WebApp** provides a dashboard for monitoring health data, issuing medicine
 
 ---
 
-### 🎨 UI Design
+### UI Design
 
 * Clean, responsive interface
 * Accessibility-conscious layout
@@ -182,7 +183,7 @@ The **WebApp** provides a dashboard for monitoring health data, issuing medicine
 
 ---
 
-### 📂 Folder Structure (WebApp)
+### Folder Structure (WebApp)
 
 ```
 WebApp/
@@ -199,7 +200,7 @@ WebApp/
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 VocalEyes/
@@ -212,7 +213,7 @@ VocalEyes/
 
 ---
 
-## 👥 Target Audience
+## Target Audience
 
 * **Blind/Visually Impaired Users**: For Android app usage
 * **Caregivers/Family Members**: Via WebApp dashboard
@@ -221,7 +222,7 @@ VocalEyes/
 
 ---
 
-## 📈 Impact
+## Impact
 
 * Reduces dependency on others
 * Enables confident navigation and self-help
@@ -230,7 +231,7 @@ VocalEyes/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, feedback, and feature suggestions are welcome!
 Please create a pull request or open an issue.
