@@ -13,18 +13,20 @@ export const setUserBluetoothStatus = async (userId: string, bluetoothStatus: bo
     const userDoc = await getDoc(userDocRef)
 
     if (userDoc.exists()) {
-      // Update existing user document with BluetoothEnabled field
+      // Update existing user document with both field variations
       await setDoc(userDocRef, {
-        BluetoothEnabled: bluetoothStatus,
-        bluetooth: bluetoothStatus, // Keep backward compatibility
+        BluetoothEnabled: bluetoothStatus,    // Uppercase B
+        bluetoothEnabled: bluetoothStatus,    // Lowercase b (matches Firebase screenshot)
+        bluetooth: bluetoothStatus,           // Keep backward compatibility
         lastUpdated: Date.now()
       }, { merge: true })
       console.log(`BluetoothEnabled status updated for user ${userId}: ${bluetoothStatus}`)
     } else {
       // Create new user document with BluetoothEnabled status
       await setDoc(userDocRef, {
-        BluetoothEnabled: bluetoothStatus,
-        bluetooth: bluetoothStatus, // Keep backward compatibility
+        BluetoothEnabled: bluetoothStatus,    // Uppercase B
+        bluetoothEnabled: bluetoothStatus,    // Lowercase b (matches Firebase screenshot)
+        bluetooth: bluetoothStatus,           // Keep backward compatibility
         createdAt: Date.now(),
         lastUpdated: Date.now()
       })
@@ -49,15 +51,24 @@ export const getUserBluetoothStatus = async (userId: string) => {
     if (userDoc.exists()) {
       const userData = userDoc.data()
 
-      // Check BluetoothEnabled field first, fallback to bluetooth for compatibility
-      const bluetoothEnabled = userData?.BluetoothEnabled !== undefined
-        ? userData?.BluetoothEnabled
-        : userData?.bluetooth
+      // Check BluetoothEnabled field variations, fallback to bluetooth for compatibility
+      let bluetoothEnabled = userData?.BluetoothEnabled
+
+      // Check lowercase variation
+      if (bluetoothEnabled === undefined) {
+        bluetoothEnabled = userData?.bluetoothEnabled
+      }
+
+      // Fallback to bluetooth field
+      if (bluetoothEnabled === undefined) {
+        bluetoothEnabled = userData?.bluetooth
+      }
 
       return {
         success: true,
         bluetoothStatus: bluetoothEnabled,
         BluetoothEnabled: userData?.BluetoothEnabled,
+        bluetoothEnabled: userData?.bluetoothEnabled,
         bluetooth: userData?.bluetooth,
         userData: userData
       }

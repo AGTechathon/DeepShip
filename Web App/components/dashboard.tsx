@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import type { User } from "firebase/auth"
 import { ref, onValue } from "firebase/database"
 import { database, firestore } from "@/lib/firebase"
-import { doc, onSnapshot } from "firebase/firestore"
+import { doc, onSnapshot, getDoc, setDoc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -87,18 +87,83 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   useEffect(() => {
     if (!user?.uid) {
       console.warn("No user UID available for BluetoothEnabled monitoring")
+      setBluetoothStatus(null)
       return
     }
 
     if (!firestore) {
       console.error("Firestore not initialized")
+      setBluetoothStatus(null)
       return
     }
 
-    console.log(`Setting up BluetoothEnabled listener for user: ${user.uid}`)
+    console.log(`🔵 Setting up BluetoothEnabled listener for user: ${user.uid}`)
 
+    // First, try to get the document immediately to check if it exists
+    const checkUserDocument = async () => {
+      try {
+        const userDocRef = doc(firestore, "users", user.uid)
+        const userDoc = await getDoc(userDocRef)
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+
+          // Check for BluetoothEnabled field variations (case-sensitive)
+          let bluetoothEnabled = userData?.BluetoothEnabled
+
+          // Check for lowercase variation
+          if (bluetoothEnabled === undefined) {
+            bluetoothEnabled = userData?.bluetoothEnabled
+          }
+
+          // Fallback to bluetooth field for backward compatibility
+          if (bluetoothEnabled === undefined) {
+            bluetoothEnabled = userData?.bluetooth
+          }
+
+          console.info(`🔍 Initial BluetoothEnabled check for user ${user.uid}:`, {
+            userId: user.uid,
+            userEmail: user.email,
+            documentExists: true,
+            BluetoothEnabled: userData?.BluetoothEnabled,
+            bluetoothEnabled: userData?.bluetoothEnabled,
+            bluetooth: userData?.bluetooth,
+            finalValue: bluetoothEnabled,
+            allFields: Object.keys(userData),
+            timestamp: new Date().toISOString()
+          })
+
+          // Update the bluetooth status state immediately
+          setBluetoothStatus(bluetoothEnabled)
+        } else {
+          console.warn(`❌ User document not found for user: ${user.uid}`)
+          console.info(`📄 Creating default document for user: ${user.uid}`)
+
+          // Create a default document with BluetoothEnabled = false
+          await setDoc(userDocRef, {
+            BluetoothEnabled: false,    // Uppercase B
+            bluetoothEnabled: false,    // Lowercase b (matches Firebase screenshot)
+            bluetooth: false,           // Backward compatibility
+            email: user.email,
+            createdAt: Date.now(),
+            lastUpdated: Date.now(),
+            autoCreated: true
+          })
+
+          setBluetoothStatus(false)
+          console.info(`✅ Default document created for user: ${user.uid} with BluetoothEnabled = false`)
+        }
+      } catch (error) {
+        console.error("❌ Error checking user document:", error)
+        setBluetoothStatus(null)
+      }
+    }
+
+    // Check document immediately
+    checkUserDocument()
+
+    // Then set up real-time listener
     try {
-      // Listen to BluetoothEnabled field/document in user's UID
       const userDocRef = doc(firestore, "users", user.uid)
 
       const unsubscribe = onSnapshot(
@@ -108,18 +173,24 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
             if (doc.exists()) {
               const userData = doc.data()
 
-              // Check for BluetoothEnabled field (primary)
+              // Check for BluetoothEnabled field variations (case-sensitive)
               let bluetoothEnabled = userData?.BluetoothEnabled
+
+              // Check for lowercase variation
+              if (bluetoothEnabled === undefined) {
+                bluetoothEnabled = userData?.bluetoothEnabled
+              }
 
               // Fallback to bluetooth field for backward compatibility
               if (bluetoothEnabled === undefined) {
                 bluetoothEnabled = userData?.bluetooth
               }
 
-              console.info(`BluetoothEnabled status for user ${user.uid}:`, {
+              console.info(`🔄 Real-time BluetoothEnabled update for user ${user.uid}:`, {
                 userId: user.uid,
                 userEmail: user.email,
                 BluetoothEnabled: userData?.BluetoothEnabled,
+                bluetoothEnabled: userData?.bluetoothEnabled,
                 bluetooth: userData?.bluetooth,
                 finalValue: bluetoothEnabled,
                 timestamp: new Date().toISOString()
@@ -129,25 +200,24 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
               setBluetoothStatus(bluetoothEnabled)
 
               if (bluetoothEnabled === false) {
-                console.warn(`BluetoothEnabled disabled for user: ${user.uid}`)
-                setShowBluetoothDialog(true)
+                console.warn(`🔴 BluetoothEnabled disabled for user: ${user.uid}`)
 
                 // Stop live monitoring if it's currently active
                 if (isRealtimeActive) {
-                  console.warn("Stopping live monitoring due to BluetoothEnabled = false")
+                  console.warn("⏹️ Stopping live monitoring due to BluetoothEnabled = false")
                   setIsRealtimeActive(false)
                 }
               } else if (bluetoothEnabled === true) {
-                console.info(`BluetoothEnabled enabled for user: ${user.uid}`)
+                console.info(`🟢 BluetoothEnabled enabled for user: ${user.uid}`)
               } else {
-                console.info(`BluetoothEnabled status unknown for user: ${user.uid} - value: ${bluetoothEnabled}`)
+                console.info(`⚪ BluetoothEnabled status unknown for user: ${user.uid} - value: ${bluetoothEnabled}`)
               }
             } else {
-              console.warn(`User document not found for user: ${user.uid}`)
+              console.warn(`❌ User document not found in real-time listener for user: ${user.uid}`)
               setBluetoothStatus(null)
             }
           } catch (error) {
-            console.error("Error processing BluetoothEnabled status:", error, {
+            console.error("❌ Error processing BluetoothEnabled status:", error, {
               userId: user.uid,
               userEmail: user.email,
               errorMessage: error instanceof Error ? error.message : String(error)
@@ -156,7 +226,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           }
         },
         (error) => {
-          console.error("Error listening to user document for BluetoothEnabled:", error, {
+          console.error("❌ Error listening to user document for BluetoothEnabled:", error, {
             userId: user.uid,
             userEmail: user.email,
             errorCode: error?.code || 'unknown',
@@ -167,11 +237,11 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
       )
 
       return () => {
-        console.log(`Cleaning up BluetoothEnabled listener for user: ${user.uid}`)
+        console.log(`🧹 Cleaning up BluetoothEnabled listener for user: ${user.uid}`)
         unsubscribe()
       }
     } catch (error) {
-      console.error("Error setting up BluetoothEnabled listener:", error, {
+      console.error("❌ Error setting up BluetoothEnabled listener:", error, {
         userId: user.uid,
         userEmail: user.email,
         errorMessage: error instanceof Error ? error.message : String(error)
@@ -432,30 +502,86 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     fetchGoogleFitData();
   }, [googleFitToken]);
 
-  const toggleRealtime = () => {
+  const toggleRealtime = async () => {
+    console.log(`🎯 toggleRealtime called - isRealtimeActive: ${isRealtimeActive}, bluetoothStatus: ${bluetoothStatus}`)
+
     // If trying to start live monitoring, check Bluetooth status first
     if (!isRealtimeActive) {
       try {
         // Check if user is authenticated
         if (!user?.uid) {
-          console.error("User not authenticated for Bluetooth check")
+          console.error("❌ User not authenticated for Bluetooth check")
           alert("Please log in to start live monitoring")
           return
         }
 
-        // Check if Bluetooth status is available
+        console.log(`🔍 Checking BluetoothEnabled status for user: ${user.uid}`)
+        console.log(`📊 Current bluetoothStatus state: ${bluetoothStatus}`)
+
+        // If status is still loading, try to fetch it directly
         if (bluetoothStatus === null || bluetoothStatus === undefined) {
-          console.warn(`Bluetooth status still loading for user: ${user.uid}`, { bluetoothStatus })
-          alert("Checking Bluetooth status... Please wait a moment and try again.")
-          return
+          console.warn(`⏳ Bluetooth status still loading, attempting direct fetch...`)
+
+          try {
+            const userDocRef = doc(firestore, "users", user.uid)
+            const userDoc = await getDoc(userDocRef)
+
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+              let bluetoothEnabled = userData?.BluetoothEnabled
+
+              // Check for lowercase variation
+              if (bluetoothEnabled === undefined) {
+                bluetoothEnabled = userData?.bluetoothEnabled
+              }
+
+              // Fallback to bluetooth field
+              if (bluetoothEnabled === undefined) {
+                bluetoothEnabled = userData?.bluetooth
+              }
+
+              console.log(`📄 Direct fetch result:`, {
+                documentExists: true,
+                BluetoothEnabled: userData?.BluetoothEnabled,
+                bluetoothEnabled: userData?.bluetoothEnabled,
+                bluetooth: userData?.bluetooth,
+                finalValue: bluetoothEnabled
+              })
+
+              // Update state with fetched value
+              setBluetoothStatus(bluetoothEnabled)
+
+              // Continue with the check using the fetched value
+              if (bluetoothEnabled === false) {
+                console.warn(`🔴 BluetoothEnabled is false for user: ${user.uid}`)
+                setShowBluetoothDialog(true)
+                return
+              } else if (bluetoothEnabled === true) {
+                console.log(`🟢 BluetoothEnabled is true for user: ${user.uid} - Starting live monitoring`)
+                setIsRealtimeActive(true)
+                return
+              } else {
+                console.warn(`⚪ BluetoothEnabled value is unclear: ${bluetoothEnabled}`)
+                alert(`BluetoothEnabled status is unclear: ${bluetoothEnabled}. Please set it to true or false in Firebase.`)
+                return
+              }
+            } else {
+              console.warn(`❌ User document not found for user: ${user.uid}`)
+              alert("User document not found. Please use the debug panel to create a test document.")
+              return
+            }
+          } catch (fetchError) {
+            console.error("❌ Error fetching BluetoothEnabled status:", fetchError)
+            alert("Error checking Bluetooth status. Please try again or check the console for details.")
+            return
+          }
         }
 
+        // Status is available, proceed with normal checks
         if (bluetoothStatus === false) {
-          console.warn(`Bluetooth is disabled for user: ${user.uid}`)
-          // Show popup with proper error context
+          console.warn(`🔴 Bluetooth is disabled for user: ${user.uid}`)
           setShowBluetoothDialog(true)
 
-          // Log the error for debugging
           console.error("Live monitoring blocked: Bluetooth is disabled", {
             userId: user.uid,
             userEmail: user.email,
@@ -465,13 +591,11 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           return
         }
 
-        // Bluetooth is on, proceed with starting live monitoring
         if (bluetoothStatus === true) {
-          console.log(`Bluetooth connected for user ${user.uid} - Starting live heart rate monitoring`)
+          console.log(`🟢 Bluetooth connected for user ${user.uid} - Starting live heart rate monitoring`)
           setIsRealtimeActive(true)
 
-          // Log successful start
-          console.info("Live monitoring started successfully", {
+          console.info("✅ Live monitoring started successfully", {
             userId: user.uid,
             userEmail: user.email,
             bluetoothStatus: bluetoothStatus,
@@ -479,8 +603,13 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           })
           return
         }
+
+        // If we get here, something unexpected happened
+        console.warn(`⚠️ Unexpected bluetoothStatus value: ${bluetoothStatus}`)
+        alert(`Unexpected BluetoothEnabled status: ${bluetoothStatus}. Please check Firebase document.`)
+
       } catch (error) {
-        console.error("Error checking Bluetooth status:", error)
+        console.error("❌ Error in toggleRealtime:", error)
         alert("Error checking Bluetooth status. Please try again.")
         return
       }
@@ -488,7 +617,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
     // If stopping live monitoring, log the action
     if (isRealtimeActive) {
-      console.log(`Live monitoring stopped for user: ${user?.uid}`)
+      console.log(`⏹️ Live monitoring stopped for user: ${user?.uid}`)
     }
 
     // Toggle normally
@@ -796,91 +925,21 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                 transition={{ delay: 0.8 }}
                 whileHover={{ scale: 1.02 }}
               >
+                {/* Header Row */}
                 <motion.div
-                  className="flex items-center justify-between mb-3"
+                  className="flex items-center justify-between mb-4"
                   initial={{ y: -10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.9 }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <motion.div
                       animate={isRealtimeActive ? { scale: [1, 1.2, 1] } : {}}
                       transition={{ duration: 1, repeat: Infinity }}
                     >
                       <Heart className={`h-5 w-5 ${isRealtimeActive ? 'text-red-500' : 'text-gray-400'}`} />
                     </motion.div>
-                    <span className="font-semibold">Live Heart Rate</span>
-
-                    {/* Pulse Rate Status Indicator */}
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.5, type: "spring" }}
-                      className="ml-2"
-                    >
-                      {bluetoothStatus === true ? (
-                        <motion.div
-                          animate={{ scale: [1, 1.1, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full"
-                          title="Pulse Rate: ON - BluetoothEnabled is true"
-                        >
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="h-2 w-2 bg-green-500 rounded-full"
-                          />
-                          <span className="text-xs text-green-600 font-medium">Pulse ON</span>
-                        </motion.div>
-                      ) : bluetoothStatus === false ? (
-                        <motion.div
-                          animate={{ opacity: [1, 0.5, 1] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-full cursor-pointer"
-                          onClick={() => setShowBluetoothDialog(true)}
-                          title="Pulse Rate: OFF - BluetoothEnabled is false"
-                        >
-                          <div className="h-2 w-2 bg-red-500 rounded-full" />
-                          <span className="text-xs text-red-600 font-medium">Pulse OFF</span>
-                        </motion.div>
-                      ) : (
-                        <div
-                          className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full"
-                          title="Checking BluetoothEnabled status..."
-                        >
-                          <div className="h-2 w-2 bg-gray-400 rounded-full animate-pulse" />
-                          <span className="text-xs text-gray-600 font-medium">Checking...</span>
-                        </div>
-                      )}
-                    </motion.div>
-
-                    {/* Bluetooth Connection Status */}
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.7, type: "spring" }}
-                      className="ml-1"
-                    >
-                      {bluetoothStatus === true ? (
-                        <motion.div
-                          animate={{ rotate: [0, 360] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                          className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-full"
-                          title="Bluetooth Connection: Active"
-                        >
-                          <Bluetooth className="h-3 w-3 text-blue-600" />
-                          <span className="text-xs text-blue-600 font-medium">Connected</span>
-                        </motion.div>
-                      ) : bluetoothStatus === false ? (
-                        <motion.div
-                          className="flex items-center gap-1 px-2 py-1 bg-orange-100 rounded-full"
-                          title="Bluetooth Connection: Disabled"
-                        >
-                          <BluetoothOff className="h-3 w-3 text-orange-600" />
-                          <span className="text-xs text-orange-600 font-medium">Disabled</span>
-                        </motion.div>
-                      ) : null}
-                    </motion.div>
+                    <span className="font-semibold text-gray-800">Live Heart Rate</span>
                   </div>
                   <motion.div
                     initial={{ scale: 0 }}
@@ -892,15 +951,91 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                     </Badge>
                   </motion.div>
                 </motion.div>
+
+                {/* Status Indicators Row */}
                 <motion.div
-                  className="flex items-center justify-between"
+                  className="flex items-center gap-2 mb-4"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 1.1 }}
                 >
-                  <div>
+                  {/* Pulse Rate Status Indicator */}
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: "spring" }}
+                  >
+                    {bluetoothStatus === true ? (
+                      <motion.div
+                        animate={{ scale: [1, 1.1, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-100 rounded-full"
+                        title="Pulse Rate: ON - BluetoothEnabled is true"
+                      >
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                          className="h-2 w-2 bg-green-500 rounded-full"
+                        />
+                        <span className="text-xs text-green-600 font-medium">Pulse ON</span>
+                      </motion.div>
+                    ) : bluetoothStatus === false ? (
+                      <motion.div
+                        animate={{ opacity: [1, 0.5, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-100 rounded-full cursor-pointer"
+                        onClick={() => setShowBluetoothDialog(true)}
+                        title="Pulse Rate: OFF - BluetoothEnabled is false"
+                      >
+                        <div className="h-2 w-2 bg-red-500 rounded-full" />
+                        <span className="text-xs text-red-600 font-medium">Pulse OFF</span>
+                      </motion.div>
+                    ) : (
+                      <div
+                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded-full"
+                        title="Checking BluetoothEnabled status..."
+                      >
+                        <div className="h-2 w-2 bg-gray-400 rounded-full animate-pulse" />
+                        <span className="text-xs text-gray-600 font-medium">Checking...</span>
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* Bluetooth Connection Status */}
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.7, type: "spring" }}
+                  >
+                    {bluetoothStatus === true ? (
+                      <motion.div
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 rounded-full"
+                        title="Bluetooth Connection: Active"
+                      >
+                        <Bluetooth className="h-3 w-3 text-blue-600" />
+                        <span className="text-xs text-blue-600 font-medium">Connected</span>
+                      </motion.div>
+                    ) : bluetoothStatus === false ? (
+                      <motion.div
+                        className="flex items-center gap-1 px-3 py-1.5 bg-orange-100 rounded-full"
+                        title="Bluetooth Connection: Disabled"
+                      >
+                        <BluetoothOff className="h-3 w-3 text-orange-600" />
+                        <span className="text-xs text-orange-600 font-medium">Disabled</span>
+                      </motion.div>
+                    ) : null}
+                  </motion.div>
+                </motion.div>
+                {/* Heart Rate Display and Button Row */}
+                <motion.div
+                  className="flex items-end justify-between"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.2 }}
+                >
+                  <div className="flex items-end gap-2">
                     <motion.div
-                      className="text-3xl font-bold text-red-600"
+                      className="text-4xl font-bold text-red-600"
                       key={getDisplayHeartRate()}
                       initial={{ scale: 1.3, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -908,7 +1043,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                     >
                       {getDisplayHeartRate()}
                     </motion.div>
-                    <div className="text-sm text-gray-500">BPM</div>
+                    <div className="text-sm text-gray-500 mb-1">BPM</div>
                   </div>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
@@ -918,7 +1053,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                       onClick={toggleRealtime}
                       variant={isRealtimeActive ? "destructive" : "default"}
                       size="sm"
-                      className={`flex items-center gap-2 ${
+                      className={`flex items-center gap-2 px-4 py-2 ${
                         !isRealtimeActive && bluetoothStatus === false
                           ? "border-red-300 text-red-600 hover:bg-red-50"
                           : ""
@@ -944,16 +1079,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                           <Activity className="h-4 w-4" />
                         )}
                       </motion.div>
-                      {isRealtimeActive ? "Stop" : "Start"} Live
-                      {!isRealtimeActive && bluetoothStatus === false && (
-                        <motion.span
-                          className="text-xs opacity-75"
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          (Bluetooth Required)
-                        </motion.span>
-                      )}
+                      <span className="font-medium">{isRealtimeActive ? "Stop" : "Start"} Live</span>
                     </Button>
                   </motion.div>
                 </motion.div>
