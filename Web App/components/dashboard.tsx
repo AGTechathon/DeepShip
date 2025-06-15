@@ -15,7 +15,7 @@ import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity, Bluetooth,
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
-import BluetoothDebug from "@/components/bluetooth-debug"
+
 import { motion, AnimatePresence } from "framer-motion"
 import "@/lib/bluetooth-test" // Import test utilities for development
 import { useHealthData } from "@/contexts/health-data-context"
@@ -567,7 +567,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
               }
             } else {
               console.warn(`❌ User document not found for user: ${user.uid}`)
-              alert("User document not found. Please use the debug panel to create a test document.")
+              alert("User document not found. Please ensure your user profile is properly set up in Firebase.")
               return
             }
           } catch (fetchError) {
@@ -1355,8 +1355,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Debug Panel - Remove in production */}
-      <BluetoothDebug user={user} />
+
     </motion.div>
   )
 }
