@@ -15,6 +15,7 @@ import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity, Bluetooth,
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
+import BluetoothDebug from "@/components/bluetooth-debug"
 import { motion, AnimatePresence } from "framer-motion"
 import "@/lib/bluetooth-test" // Import test utilities for development
 import { useHealthData } from "@/contexts/health-data-context"
@@ -56,10 +57,22 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
   })
   const [showBluetoothDialog, setShowBluetoothDialog] = useState(false)
   const [dynamicHeartRate, setDynamicHeartRate] = useState(78)
-  const [bluetoothStatus, setBluetoothStatus] = useState<boolean | null>(null)
+  const [bluetoothStatus, setBluetoothStatus] = useState<boolean | null | undefined>(null)
 
   // Extract data from context (excluding bluetoothStatus since we manage it locally)
   const { fitSteps, fitHeartRate, location } = healthData
+
+  // Debug logging for component state
+  useEffect(() => {
+    console.log("Dashboard component state:", {
+      userUid: user?.uid,
+      userEmail: user?.email,
+      bluetoothStatus,
+      isRealtimeActive,
+      firestoreAvailable: !!firestore,
+      timestamp: new Date().toISOString()
+    })
+  }, [user?.uid, bluetoothStatus, isRealtimeActive])
 
 
   useEffect(() => {
@@ -72,83 +85,100 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
 
   // Enhanced Bluetooth status handling with proper error logging
   useEffect(() => {
-    if (!user?.uid) return
+    if (!user?.uid) {
+      console.warn("No user UID available for BluetoothEnabled monitoring")
+      return
+    }
 
-    // Listen to BluetoothEnabled field/document in user's UID
-    const userDocRef = doc(firestore, "users", user.uid)
-    const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      try {
-        if (doc.exists()) {
-          const userData = doc.data()
+    if (!firestore) {
+      console.error("Firestore not initialized")
+      return
+    }
 
-          // Check for BluetoothEnabled field (primary)
-          let bluetoothEnabled = userData?.BluetoothEnabled
+    console.log(`Setting up BluetoothEnabled listener for user: ${user.uid}`)
 
-          // Fallback to bluetooth field for backward compatibility
-          if (bluetoothEnabled === undefined) {
-            bluetoothEnabled = userData?.bluetooth
+    try {
+      // Listen to BluetoothEnabled field/document in user's UID
+      const userDocRef = doc(firestore, "users", user.uid)
+
+      const unsubscribe = onSnapshot(
+        userDocRef,
+        (doc) => {
+          try {
+            if (doc.exists()) {
+              const userData = doc.data()
+
+              // Check for BluetoothEnabled field (primary)
+              let bluetoothEnabled = userData?.BluetoothEnabled
+
+              // Fallback to bluetooth field for backward compatibility
+              if (bluetoothEnabled === undefined) {
+                bluetoothEnabled = userData?.bluetooth
+              }
+
+              console.info(`BluetoothEnabled status for user ${user.uid}:`, {
+                userId: user.uid,
+                userEmail: user.email,
+                BluetoothEnabled: userData?.BluetoothEnabled,
+                bluetooth: userData?.bluetooth,
+                finalValue: bluetoothEnabled,
+                timestamp: new Date().toISOString()
+              })
+
+              // Update the bluetooth status state
+              setBluetoothStatus(bluetoothEnabled)
+
+              if (bluetoothEnabled === false) {
+                console.warn(`BluetoothEnabled disabled for user: ${user.uid}`)
+                setShowBluetoothDialog(true)
+
+                // Stop live monitoring if it's currently active
+                if (isRealtimeActive) {
+                  console.warn("Stopping live monitoring due to BluetoothEnabled = false")
+                  setIsRealtimeActive(false)
+                }
+              } else if (bluetoothEnabled === true) {
+                console.info(`BluetoothEnabled enabled for user: ${user.uid}`)
+              } else {
+                console.info(`BluetoothEnabled status unknown for user: ${user.uid} - value: ${bluetoothEnabled}`)
+              }
+            } else {
+              console.warn(`User document not found for user: ${user.uid}`)
+              setBluetoothStatus(null)
+            }
+          } catch (error) {
+            console.error("Error processing BluetoothEnabled status:", error, {
+              userId: user.uid,
+              userEmail: user.email,
+              errorMessage: error instanceof Error ? error.message : String(error)
+            })
+            setBluetoothStatus(null)
           }
-
-          console.info(`BluetoothEnabled status for user ${user.uid}:`, {
+        },
+        (error) => {
+          console.error("Error listening to user document for BluetoothEnabled:", error, {
             userId: user.uid,
             userEmail: user.email,
-            BluetoothEnabled: bluetoothEnabled,
-            timestamp: new Date().toISOString(),
-            documentData: userData
+            errorCode: error?.code || 'unknown',
+            errorMessage: error?.message || String(error)
           })
-
-          if (bluetoothEnabled === false) {
-            console.warn(`BluetoothEnabled disabled for user: ${user.uid}`, {
-              userId: user.uid,
-              userEmail: user.email,
-              BluetoothEnabled: bluetoothEnabled,
-              timestamp: new Date().toISOString(),
-              action: "showing_bluetooth_dialog"
-            })
-
-            setShowBluetoothDialog(true)
-
-            // Stop live monitoring if it's currently active
-            if (isRealtimeActive) {
-              console.warn("Stopping live monitoring due to BluetoothEnabled = false")
-              setIsRealtimeActive(false)
-            }
-          } else if (bluetoothEnabled === true) {
-            console.info(`BluetoothEnabled connected for user: ${user.uid}`, {
-              userId: user.uid,
-              userEmail: user.email,
-              BluetoothEnabled: bluetoothEnabled,
-              timestamp: new Date().toISOString()
-            })
-          } else {
-            console.info(`BluetoothEnabled status unknown for user: ${user.uid} - value: ${bluetoothEnabled}`)
-          }
-
-          // Update the bluetooth status state
-          setBluetoothStatus(bluetoothEnabled)
-        } else {
-          console.warn(`User document not found for user: ${user.uid}`)
           setBluetoothStatus(null)
         }
-      } catch (error) {
-        console.error("Error processing BluetoothEnabled status:", error, {
-          userId: user.uid,
-          userEmail: user.email,
-          error: error
-        })
-        setBluetoothStatus(null)
+      )
+
+      return () => {
+        console.log(`Cleaning up BluetoothEnabled listener for user: ${user.uid}`)
+        unsubscribe()
       }
-    }, (error) => {
-      console.error("Error listening to user document for BluetoothEnabled:", error, {
+    } catch (error) {
+      console.error("Error setting up BluetoothEnabled listener:", error, {
         userId: user.uid,
         userEmail: user.email,
-        error: error
+        errorMessage: error instanceof Error ? error.message : String(error)
       })
       setBluetoothStatus(null)
-    })
-
-    return () => unsubscribe()
-  }, [user?.uid, isRealtimeActive])
+    }
+  }, [user?.uid]) // Removed isRealtimeActive from dependencies to prevent unnecessary re-subscriptions
 
 
 
@@ -414,8 +444,8 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
         }
 
         // Check if Bluetooth status is available
-        if (bluetoothStatus === null) {
-          console.warn(`Bluetooth status still loading for user: ${user.uid}`)
+        if (bluetoothStatus === null || bluetoothStatus === undefined) {
+          console.warn(`Bluetooth status still loading for user: ${user.uid}`, { bluetoothStatus })
           alert("Checking Bluetooth status... Please wait a moment and try again.")
           return
         }
@@ -469,6 +499,14 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
     if (rate < 60) return { status: "Low", color: "bg-blue-500", textColor: "text-blue-600" }
     if (rate > 100) return { status: "High", color: "bg-red-500", textColor: "text-red-600" }
     return { status: "Normal", color: "bg-green-500", textColor: "text-green-600" }
+  }
+
+  // Helper function to safely display bluetooth status
+  const getBluetoothStatusDisplay = () => {
+    if (bluetoothStatus === null) return 'Loading...'
+    if (bluetoothStatus === undefined) return 'Undefined'
+    if (typeof bluetoothStatus === 'boolean') return bluetoothStatus.toString()
+    return String(bluetoothStatus)
   }
 
   // Get the appropriate heart rate to display
@@ -1131,7 +1169,7 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                 <div className="mt-2 text-xs text-gray-500">
                   User: {user.email}
                   <br />
-                  BluetoothEnabled Status: {bluetoothStatus === null ? 'Loading...' : bluetoothStatus.toString()}
+                  BluetoothEnabled Status: {getBluetoothStatusDisplay()}
                 </div>
               )}
             </DialogDescription>
@@ -1190,6 +1228,9 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
           </motion.div>
         </DialogContent>
       </Dialog>
+
+      {/* Debug Panel - Remove in production */}
+      <BluetoothDebug user={user} />
     </motion.div>
   )
 }
