@@ -6,7 +6,7 @@ This guide explains how to test the Bluetooth-based heart rate functionality in 
 
 The dashboard now includes Bluetooth status monitoring that:
 - Checks Firebase Firestore for user's Bluetooth status when "Start Live" is clicked
-- Shows dynamic heart rate (75-95 BPM) when Bluetooth is ON and live monitoring is active
+- Shows dynamic heart rate (75-110 BPM) when Bluetooth is ON and live monitoring is active
 - Displays a popup dialog "Connect to watch" when trying to start live monitoring with Bluetooth OFF
 - Provides visual indicators for connection status on Start Live buttons
 - Only allows live heart rate monitoring when Bluetooth is connected
@@ -66,7 +66,7 @@ getUserBluetoothStatus("rXbXkdGAHugddhy6hpu0jC9zRBq2")
 
 ### When "Start Live" is clicked with Bluetooth = true (Connected)
 - ✅ Live monitoring starts immediately
-- ✅ Heart rate displays between 75-95 BPM in real-time
+- ✅ Heart rate displays between 75-110 BPM in real-time
 - ✅ Dynamic heart rate changes every 1.5 seconds
 - ✅ Blue "Connected" indicator appears
 - ✅ Chart updates with live data
@@ -85,7 +85,7 @@ getUserBluetoothStatus("rXbXkdGAHugddhy6hpu0jC9zRBq2")
 - ⏳ System waits for Firebase data
 
 ### Background Behavior (when live monitoring is OFF)
-- 🔵 **Bluetooth ON**: Background heart rate updates every 3 seconds (75-95 BPM)
+- 🔵 **Bluetooth ON**: Background heart rate updates every 3 seconds (75-110 BPM)
 - 🔴 **Bluetooth OFF**: Static heart rate display
 - ⚪ **Bluetooth NULL**: Static heart rate display
 
@@ -150,12 +150,12 @@ firebase.firestore().enableNetwork()
 
 ## 📊 Heart Rate Patterns
 
-### Bluetooth Connected (75-95 BPM)
-- Base rate: 85 BPM
-- Sine wave variation: ±8 BPM
-- Random variation: ±3 BPM
+### Bluetooth Connected (75-110 BPM)
+- Base rate: 92.5 BPM
+- Sine wave variation: ±12 BPM
+- Random variation: ±5 BPM
 - Update interval: 1.5 seconds
-- Range: Clamped to 75-95 BPM
+- Range: Clamped to 75-110 BPM
 
 ### Bluetooth Disconnected (60-100 BPM)
 - Base rate: 75 BPM

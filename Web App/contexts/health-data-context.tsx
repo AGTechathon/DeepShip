@@ -90,6 +90,12 @@ export const HealthDataProvider: React.FC<HealthDataProviderProps> = ({
   // Function to reverse geocode coordinates to address
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
+      // Add error handling for missing API key
+      if (!process.env.NEXT_PUBLIC_OPENCAGE_API_KEY) {
+        console.warn("OpenCage API key not found, using Nominatim fallback")
+        throw new Error("No OpenCage API key")
+      }
+
       const response = await fetch(
         `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${process.env.NEXT_PUBLIC_OPENCAGE_API_KEY}`
       )
@@ -162,27 +168,8 @@ export const HealthDataProvider: React.FC<HealthDataProviderProps> = ({
     return () => unsubscribe()
   }, [user?.uid])
 
-  // Listen to Bluetooth status from Firestore
-  useEffect(() => {
-    if (!user) return
-
-    const userDocRef = doc(firestore, "users", user.uid)
-    const unsubscribe = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        const userData = doc.data()
-        const bluetooth = userData?.bluetooth
-        
-        setHealthData(prev => ({
-          ...prev,
-          bluetoothStatus: bluetooth
-        }))
-      }
-    }, (error) => {
-      console.error("Error listening to user document:", error)
-    })
-
-    return () => unsubscribe()
-  }, [user])
+  // Bluetooth status is now managed locally in Dashboard component
+  // This context focuses on health metrics only
 
   // Fetch Google Fit data
   useEffect(() => {

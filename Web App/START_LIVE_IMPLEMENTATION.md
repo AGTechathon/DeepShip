@@ -7,7 +7,7 @@ The "Start Live" button in the "Your Heart Statistics" section now implements th
 ### ✅ **When Start Live is clicked:**
 
 1. **Checks Bluetooth status** from Firebase Firestore for the current logged-in user
-2. **If Bluetooth = true**: Starts live heart rate monitoring (75-95 BPM)
+2. **If Bluetooth = true**: Starts live heart rate monitoring (75-110 BPM)
 3. **If Bluetooth = false**: Shows popup "Connect to watch"
 4. **If Bluetooth = null**: Ignores click (still loading status)
 
@@ -42,7 +42,7 @@ const toggleRealtime = () => {
 ```
 
 #### Heart Rate Monitoring Logic
-- **Live Monitoring + Bluetooth ON**: 75-95 BPM every 1.5 seconds
+- **Live Monitoring + Bluetooth ON**: 75-110 BPM every 1.5 seconds
 - **Live Monitoring + Bluetooth OFF**: Fallback simulation 60-100 BPM every 2 seconds
 - **Background Updates**: Slower updates when live mode is off
 
@@ -67,7 +67,7 @@ className={`flex items-center gap-2 ${
 ### Scenario 1: Bluetooth Connected
 1. User clicks "Start Live"
 2. ✅ Live monitoring starts immediately
-3. ✅ Heart rate shows 75-95 BPM range
+3. ✅ Heart rate shows 75-110 BPM range
 4. ✅ Chart updates in real-time
 5. ✅ Button changes to "Stop Live"
 
@@ -133,11 +133,11 @@ disableBluetoothForTesting()
 
 ## 📊 Heart Rate Patterns
 
-### Bluetooth Connected (75-95 BPM)
+### Bluetooth Connected (75-110 BPM)
 ```typescript
-const baseRate = 85 // Middle of range
-const variation = Math.sin(Date.now() / 8000) * 8 + Math.random() * 6 - 3
-const newRate = Math.round(Math.max(75, Math.min(95, baseRate + variation)))
+const baseRate = 92.5 // Middle of range
+const variation = Math.sin(Date.now() / 8000) * 12 + Math.random() * 10 - 5
+const newRate = Math.round(Math.max(75, Math.min(110, baseRate + variation)))
 ```
 
 ### Bluetooth Disconnected (60-100 BPM)
@@ -172,7 +172,7 @@ The implementation includes detailed console logging:
 ## ✅ Requirements Fulfilled
 
 1. ✅ **Bluetooth Status Check**: Checks Firebase on "Start Live" click
-2. ✅ **Heart Rate Range**: 75-95 BPM when Bluetooth = true
+2. ✅ **Heart Rate Range**: 75-110 BPM when Bluetooth = true
 3. ✅ **Loop Implementation**: Continuous updates every 1.5 seconds
 4. ✅ **Popup Message**: "Connect to watch" when Bluetooth = false
 5. ✅ **Firebase Integration**: Reads from current user's document

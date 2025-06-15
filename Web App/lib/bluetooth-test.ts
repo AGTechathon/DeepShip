@@ -2,50 +2,63 @@ import { doc, setDoc, getDoc } from "firebase/firestore"
 import { firestore } from "./firebase"
 
 /**
- * Test utility to set Bluetooth status for a specific user
+ * Test utility to set BluetoothEnabled status for a specific user
  * This is for testing purposes only
  */
 export const setUserBluetoothStatus = async (userId: string, bluetoothStatus: boolean) => {
   try {
     const userDocRef = doc(firestore, "users", userId)
-    
+
     // Check if user document exists
     const userDoc = await getDoc(userDocRef)
-    
+
     if (userDoc.exists()) {
-      // Update existing user document
-      await setDoc(userDocRef, { bluetooth: bluetoothStatus }, { merge: true })
-      console.log(`Bluetooth status updated for user ${userId}: ${bluetoothStatus}`)
-    } else {
-      // Create new user document with Bluetooth status
+      // Update existing user document with BluetoothEnabled field
       await setDoc(userDocRef, {
-        bluetooth: bluetoothStatus,
+        BluetoothEnabled: bluetoothStatus,
+        bluetooth: bluetoothStatus, // Keep backward compatibility
+        lastUpdated: Date.now()
+      }, { merge: true })
+      console.log(`BluetoothEnabled status updated for user ${userId}: ${bluetoothStatus}`)
+    } else {
+      // Create new user document with BluetoothEnabled status
+      await setDoc(userDocRef, {
+        BluetoothEnabled: bluetoothStatus,
+        bluetooth: bluetoothStatus, // Keep backward compatibility
         createdAt: Date.now(),
         lastUpdated: Date.now()
       })
-      console.log(`New user document created for ${userId} with Bluetooth status: ${bluetoothStatus}`)
+      console.log(`New user document created for ${userId} with BluetoothEnabled status: ${bluetoothStatus}`)
     }
-    
-    return { success: true, message: `Bluetooth status set to ${bluetoothStatus}` }
+
+    return { success: true, message: `BluetoothEnabled status set to ${bluetoothStatus}` }
   } catch (error) {
-    console.error("Error setting Bluetooth status:", error)
+    console.error("Error setting BluetoothEnabled status:", error)
     return { success: false, error: error }
   }
 }
 
 /**
- * Get Bluetooth status for a specific user
+ * Get BluetoothEnabled status for a specific user
  */
 export const getUserBluetoothStatus = async (userId: string) => {
   try {
     const userDocRef = doc(firestore, "users", userId)
     const userDoc = await getDoc(userDocRef)
-    
+
     if (userDoc.exists()) {
       const userData = userDoc.data()
+
+      // Check BluetoothEnabled field first, fallback to bluetooth for compatibility
+      const bluetoothEnabled = userData?.BluetoothEnabled !== undefined
+        ? userData?.BluetoothEnabled
+        : userData?.bluetooth
+
       return {
         success: true,
-        bluetoothStatus: userData?.bluetooth,
+        bluetoothStatus: bluetoothEnabled,
+        BluetoothEnabled: userData?.BluetoothEnabled,
+        bluetooth: userData?.bluetooth,
         userData: userData
       }
     } else {
@@ -55,7 +68,7 @@ export const getUserBluetoothStatus = async (userId: string) => {
       }
     }
   } catch (error) {
-    console.error("Error getting Bluetooth status:", error)
+    console.error("Error getting BluetoothEnabled status:", error)
     return { success: false, error: error }
   }
 }
@@ -98,17 +111,19 @@ export const testStartLiveButton = async (userId: string = "rXbXkdGAHugddhy6hpu0
   console.log("==========================================")
 
   // Test 1: Set Bluetooth to false and try to start live
-  console.log("📱 Test 1: Setting Bluetooth to FALSE")
+  console.log("📱 Test 1: Setting BluetoothEnabled to FALSE")
   await setUserBluetoothStatus(userId, false)
-  console.log("✅ Bluetooth set to false - Click 'Start Live' button now")
+  console.log("✅ BluetoothEnabled set to false - Click 'Start Live' button now")
   console.log("Expected: Popup should appear saying 'Connect to watch'")
+  console.log("Expected: Pulse Rate indicator should show 'Pulse OFF'")
 
   // Wait 5 seconds then test with Bluetooth on
   setTimeout(async () => {
-    console.log("\n📱 Test 2: Setting Bluetooth to TRUE")
+    console.log("\n📱 Test 2: Setting BluetoothEnabled to TRUE")
     await setUserBluetoothStatus(userId, true)
-    console.log("✅ Bluetooth set to true - Click 'Start Live' button now")
-    console.log("Expected: Live monitoring should start with heart rate 75-95 BPM")
+    console.log("✅ BluetoothEnabled set to true - Click 'Start Live' button now")
+    console.log("Expected: Live monitoring should start with heart rate 75-110 BPM")
+    console.log("Expected: Pulse Rate indicator should show 'Pulse ON'")
 
     // Wait another 5 seconds then show current status
     setTimeout(async () => {
@@ -120,22 +135,24 @@ export const testStartLiveButton = async (userId: string = "rXbXkdGAHugddhy6hpu0
 }
 
 /**
- * Quick test to set Bluetooth ON for live monitoring
+ * Quick test to set BluetoothEnabled ON for live monitoring
  */
 export const enableBluetoothForTesting = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
-  console.log("🔵 Enabling Bluetooth for testing...")
+  console.log("🔵 Enabling BluetoothEnabled for testing...")
   const result = await setUserBluetoothStatus(userId, true)
-  console.log("✅ Bluetooth enabled - You can now start live monitoring")
+  console.log("✅ BluetoothEnabled = true - You can now start live monitoring")
+  console.log("✅ Pulse Rate indicator should show 'Pulse ON'")
   return result
 }
 
 /**
- * Quick test to set Bluetooth OFF to test popup
+ * Quick test to set BluetoothEnabled OFF to test popup
  */
 export const disableBluetoothForTesting = async (userId: string = "rXbXkdGAHugddhy6hpu0jC9zRBq2") => {
-  console.log("🔴 Disabling Bluetooth for testing...")
+  console.log("🔴 Disabling BluetoothEnabled for testing...")
   const result = await setUserBluetoothStatus(userId, false)
-  console.log("❌ Bluetooth disabled - Click 'Start Live' to see popup")
+  console.log("❌ BluetoothEnabled = false - Click 'Start Live' to see popup")
+  console.log("❌ Pulse Rate indicator should show 'Pulse OFF'")
   return result
 }
 
