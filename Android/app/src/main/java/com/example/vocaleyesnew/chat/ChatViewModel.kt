@@ -74,7 +74,7 @@ Remember: You are not just an AI - you are a trusted companion helping someone n
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.language = Locale.US
-                textToSpeech?.setSpeechRate(0.8f)
+                textToSpeech?.setSpeechRate(0.7f)
                 textToSpeech?.setPitch(1.0f)
             } else {
                 Log.e(TAG, "TextToSpeech initialization failed with status: $status")

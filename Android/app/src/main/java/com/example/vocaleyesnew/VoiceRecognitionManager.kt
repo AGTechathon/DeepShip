@@ -312,7 +312,7 @@ class VoiceRecognitionManager private constructor(private val context: Context) 
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.language = Locale.US
-                textToSpeech?.setSpeechRate(0.8f)
+                textToSpeech?.setSpeechRate(0.7f)
                 textToSpeech?.setPitch(1.0f)
                 Log.d("VoiceRecognition", "TextToSpeech initialized successfully")
 
