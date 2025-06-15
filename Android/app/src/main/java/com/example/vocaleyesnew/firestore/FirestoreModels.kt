@@ -16,7 +16,10 @@ data class UserDocument(
     val photoURL: String? = null,
     val createdAt: Timestamp? = null,
     val lastLoginAt: Timestamp? = null,
-    val preferences: UserPreferences = UserPreferences()
+    val preferences: UserPreferences = UserPreferences(),
+    val bluetoothEnabled: Boolean = false,
+    @ServerTimestamp
+    val bluetoothLastUpdated: Timestamp? = null
 )
 
 /**

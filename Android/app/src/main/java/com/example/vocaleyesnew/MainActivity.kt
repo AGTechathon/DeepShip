@@ -40,6 +40,7 @@ import com.example.vocaleyesnew.chat.ChatActivity
 import com.example.vocaleyesnew.navigation.NavigationActivity
 
 import com.example.vocaleyesnew.ui.theme.VocalEyesNewTheme
+import com.example.vocaleyesnew.bluetooth.BluetoothStateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -155,7 +156,13 @@ class MainActivity : ComponentActivity() {
                         true
                     }
                     command.contains("help") || command.contains("options") || command.contains("commands") -> {
-                        speak("Available commands are: test, object detection, navigation, book reading, currency reader, and AI assistant. Say go back to return to previous screen, or go home to return to main menu.")
+                        speak("Available commands are: test, object detection, navigation, book reading, currency reader, AI assistant, and bluetooth status. Say go back to return to previous screen, or go home to return to main menu.")
+                        true
+                    }
+                    command.contains("bluetooth") || command.contains("bluetooth status") -> {
+                        val bluetoothStateManager = BluetoothStateManager.getInstance(this@MainActivity)
+                        val isEnabled = bluetoothStateManager.isBluetoothEnabled()
+                        speak("Bluetooth is currently ${if (isEnabled) "enabled" else "disabled"}")
                         true
                     }
                     else -> false // Command not handled
@@ -182,6 +189,10 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
     var showLogoutDialog by remember { mutableStateOf(false) }
     val isListening by voiceRecognitionManager.isListeningState.collectAsState()
     val authState by authViewModel.authState.collectAsState()
+
+    // Bluetooth state monitoring
+    val bluetoothStateManager = remember { BluetoothStateManager.getInstance(context) }
+    val bluetoothEnabled by bluetoothStateManager.bluetoothState.collectAsState()
 
     LaunchedEffect(isFirstLaunch) {
         if (isFirstLaunch) {
@@ -233,11 +244,18 @@ fun HomeScreen(voiceRecognitionManager: VoiceRecognitionManager, authViewModel: 
                             tint = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isListening) "Voice Recognition Active" else "Voice Recognition Inactive",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-                        )
+                        Column {
+                            Text(
+                                text = if (isListening) "Voice Recognition Active" else "Voice Recognition Inactive",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "Bluetooth: ${if (bluetoothEnabled) "ON" else "OFF"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isListening) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            )
+                        }
                     }
 
                     // Logout button with improved accessibility
