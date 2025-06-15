@@ -1,6 +1,4 @@
-Here's a comprehensive `README.md` file combining the **Android app** and **WebApp** details of your **VocalEyes** project:
-
----
+Deployed Link:- https://vocal-eyes.vercel.app/
 
 # 🧠 VocalEyes – Empowering Vision Through AI
 
