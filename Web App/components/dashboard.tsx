@@ -13,6 +13,7 @@ import { Footprints, MapPin, Filter, MoreHorizontal, Heart, Activity } from "luc
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import ThreeScene from "@/components/three-scene"
 import MedicinesSchedule from "@/components/medicines-schedule"
+import Heart3D from "@/components/heart-3d"
 import { motion, AnimatePresence } from "framer-motion"
 
 
@@ -473,17 +474,31 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 1.1 }}
                 >
-                  <div>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <motion.div
+                        className="text-3xl font-bold text-red-600"
+                        key={fitHeartRate || currentHeartRate}
+                        initial={{ scale: 1.3, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        {fitHeartRate || currentHeartRate}
+                      </motion.div>
+                      <div className="text-sm text-gray-500">BPM</div>
+                    </div>
+                    {/* 3D Heart Animation */}
                     <motion.div
-                      className="text-3xl font-bold text-red-600"
-                      key={fitHeartRate || currentHeartRate}
-                      initial={{ scale: 1.3, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.4 }}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 1.2, duration: 0.6 }}
                     >
-                      {fitHeartRate || currentHeartRate}
+                      <Heart3D
+                        heartRate={fitHeartRate || currentHeartRate}
+                        isActive={isRealtimeActive}
+                        size={80}
+                      />
                     </motion.div>
-                    <div className="text-sm text-gray-500">BPM</div>
                   </div>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
@@ -523,9 +538,52 @@ export default function Dashboard({ user, googleFitToken }: DashboardProps) {
                   )}
                 </AnimatePresence>
               </motion.div>
-    
 
-
+              {/* 3D Heart Display - Main Feature */}
+              <motion.div
+                className="flex justify-center mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.3 }}
+              >
+                <motion.div
+                  className="relative"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Heart3D
+                    heartRate={fitHeartRate || currentHeartRate}
+                    isActive={isRealtimeActive}
+                    size={160}
+                  />
+                  {/* Heart Rate Overlay */}
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.5 }}
+                  >
+                    <motion.div
+                      className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg border"
+                      animate={isRealtimeActive ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    >
+                      <div className="text-center">
+                        <motion.div
+                          className="text-lg font-bold text-red-600"
+                          key={fitHeartRate || currentHeartRate}
+                          initial={{ scale: 1.2 }}
+                          animate={{ scale: 1 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {fitHeartRate || currentHeartRate}
+                        </motion.div>
+                        <div className="text-xs text-gray-500">BPM</div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
 
               {/* Heart Rate Stats */}
               <motion.div

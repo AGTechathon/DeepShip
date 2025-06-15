@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Clock, Pill, Check, X, Bell } from "lucide-react"
 import { toast } from "sonner"
-import { motion, AnimatePresence } from "framer-motion"
 
 interface MedicineAlertsProps {
   user: User
@@ -184,45 +183,6 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
         return <X className="h-4 w-4" />
       default:
         return <Bell className="h-4 w-4" />
-    }
-  }
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 0.6,
-        staggerChildren: 0.1
-      }
-    }
-  }
-
-  const cardVariants = {
-    hidden: {
-      opacity: 0,
-      y: 20,
-      scale: 0.95
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.5
-      }
-    }
-  }
-
-  const alertCardVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: {
-        duration: 0.4
-      }
     }
   }
 
@@ -447,42 +407,20 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
   }
 
   return (
-    <motion.div
-      className="space-y-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div className="space-y-6">
       {/* Header */}
-      <motion.div
-        className="flex justify-between items-center"
-        variants={cardVariants}
-      >
-        <motion.div
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
+      <div className="flex justify-between items-center">
+        <div>
           <h2 className="text-2xl font-bold">Medicine Alerts</h2>
           <p className="text-gray-600">Manage your medication schedule</p>
-        </motion.div>
-        <motion.div
-          className="flex gap-2"
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
+        </div>
+        <div className="flex gap-2">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Medicine Alert
-              </Button>
-            </motion.div>
+            <Button className="bg-gradient-to-r from-purple-600 to-blue-600">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Medicine Alert
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -576,246 +514,119 @@ export default function MedicineAlerts({ user }: MedicineAlertsProps) {
       </div>
 
       {/* Upcoming Alerts */}
-      <motion.div
-        variants={cardVariants}
-        whileHover={{ scale: 1.01 }}
-      >
-        <Card>
-          <CardHeader>
-            <motion.div
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <CardTitle className="flex items-center gap-2">
-                <motion.div
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Clock className="h-5 w-5" />
-                </motion.div>
-                Upcoming Alerts
-              </CardTitle>
-            </motion.div>
-          </CardHeader>
-          <CardContent>
-            <AnimatePresence>
-              {upcomingAlerts.length > 0 ? (
-                <motion.div
-                  className="space-y-3"
-                  variants={containerVariants}
-                >
-                  {upcomingAlerts.map((alert, index) => (
-                    <motion.div
-                      key={alert.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                      variants={alertCardVariants}
-                      whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-                      transition={{ delay: 0.7 + index * 0.1 }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <motion.div
-                          className="p-2 bg-blue-100 rounded-full"
-                          whileHover={{ rotate: 360 }}
-                          transition={{ duration: 0.6 }}
-                        >
-                          <Pill className="h-4 w-4 text-blue-600" />
-                        </motion.div>
-                        <div>
-                          <h3 className="font-semibold">{alert.name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {alert.dosage} at {alert.time}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: 0.8 + index * 0.1 }}
-                        >
-                          <Badge className={getStatusColor(alert.status)}>
-                            {getStatusIcon(alert.status)}
-                            <span className="ml-1 capitalize">{alert.status}</span>
-                          </Badge>
-                        </motion.div>
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <Button size="sm" onClick={() => markAsTaken(alert.id)}>
-                            Mark as Taken
-                          </Button>
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div
-                  className="text-center py-8"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7 }}
-                >
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  </motion.div>
-                  <p className="text-gray-600">No upcoming alerts</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
-      </motion.div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Upcoming Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {upcomingAlerts.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingAlerts.map((alert) => (
+                <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <Pill className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{alert.name}</h3>
+                      <p className="text-sm text-gray-600">
+                        {alert.dosage} at {alert.time}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(alert.status)}>
+                      {getStatusIcon(alert.status)}
+                      <span className="ml-1 capitalize">{alert.status}</span>
+                    </Badge>
+                    <Button size="sm" onClick={() => markAsTaken(alert.id)}>
+                      Mark as Taken
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No upcoming alerts</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Medicine Alerts History */}
-      <motion.div
-        variants={cardVariants}
-        whileHover={{ scale: 1.01 }}
-      >
-        <Card>
-          <CardHeader>
-            <motion.div
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 1.0 }}
-            >
-              <CardTitle>Medicine Alerts History</CardTitle>
-              <p className="text-sm text-gray-600">Complete history of all your medicine alerts</p>
-            </motion.div>
-          </CardHeader>
-          <CardContent>
-            <motion.div
-              className="space-y-3"
-              variants={containerVariants}
-            >
-              <AnimatePresence>
-                {allAlertsHistory.map((alert, index) => (
-                  <motion.div
-                    key={alert.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                    variants={alertCardVariants}
-                    whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-                    transition={{ delay: 1.1 + index * 0.05 }}
-                    exit={{ opacity: 0, x: -20 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        className="p-2 bg-purple-100 rounded-full"
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.6 }}
-                      >
-                        <Pill className="h-4 w-4 text-purple-600" />
-                      </motion.div>
-                      <div>
-                        <h3 className="font-semibold">{alert.name}</h3>
-                        <p className="text-sm text-gray-600">
-                          {alert.dosage} at {alert.time}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {alert.date} • Created: {alert.createdAt instanceof Timestamp
-                            ? alert.createdAt.toDate().toLocaleDateString()
-                            : 'Unknown'}
-                        </p>
-                        <AnimatePresence>
-                          {alert.takenAt && (
-                            <motion.p
-                              className="text-xs text-green-600"
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                            >
-                              Taken: {alert.takenAt instanceof Timestamp
-                                ? alert.takenAt.toDate().toLocaleString()
-                                : 'Unknown'}
-                            </motion.p>
-                          )}
-                          {alert.notes && (
-                            <motion.p
-                              className="text-xs text-gray-500 italic"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ delay: 0.2 }}
-                            >
-                              {alert.notes}
-                            </motion.p>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 1.2 + index * 0.05 }}
-                      >
-                        {(() => {
-                          const actualStatus = getActualStatus(alert)
-                          return (
-                            <Badge className={getStatusColor(actualStatus)}>
-                              {getStatusIcon(actualStatus)}
-                              <span className="ml-1 capitalize">{actualStatus}</span>
-                            </Badge>
-                          )
-                        })()}
-                      </motion.div>
-                      <AnimatePresence>
-                        {alert.status === "upcoming" && isToday(alert.date) && !isGracePeriodPassed(alert.time) && (
-                          <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0 }}
-                          >
-                            <Button size="sm" onClick={() => markAsTaken(alert.id)}>
-                              Mark as Taken
-                            </Button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-
-            <AnimatePresence>
-              {alerts.length === 0 && (
-                <motion.div
-                  className="text-center py-12"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ delay: 1.0 }}
-                >
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  </motion.div>
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Medicine Alerts</h3>
-                  <p className="text-gray-500 mb-4">Add your first medicine alert to get started</p>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={() => setIsAddDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Medicine Alert
+      <Card>
+        <CardHeader>
+          <CardTitle>Medicine Alerts History</CardTitle>
+          <p className="text-sm text-gray-600">Complete history of all your medicine alerts</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {allAlertsHistory.map((alert) => (
+              <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-full">
+                    <Pill className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{alert.name}</h3>
+                    <p className="text-sm text-gray-600">
+                      {alert.dosage} at {alert.time}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {alert.date} • Created: {alert.createdAt instanceof Timestamp
+                        ? alert.createdAt.toDate().toLocaleDateString()
+                        : 'Unknown'}
+                    </p>
+                    {alert.takenAt && (
+                      <p className="text-xs text-green-600">
+                        Taken: {alert.takenAt instanceof Timestamp
+                          ? alert.takenAt.toDate().toLocaleString()
+                          : 'Unknown'}
+                      </p>
+                    )}
+                    {alert.notes && (
+                      <p className="text-xs text-gray-500 italic">{alert.notes}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const actualStatus = getActualStatus(alert)
+                    return (
+                      <Badge className={getStatusColor(actualStatus)}>
+                        {getStatusIcon(actualStatus)}
+                        <span className="ml-1 capitalize">{actualStatus}</span>
+                      </Badge>
+                    )
+                  })()}
+                  {alert.status === "upcoming" && isToday(alert.date) && !isGracePeriodPassed(alert.time) && (
+                    <Button size="sm" onClick={() => markAsTaken(alert.id)}>
+                      Mark as Taken
                     </Button>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </motion.div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {alerts.length === 0 && (
+            <div className="text-center py-12">
+              <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">No Medicine Alerts</h3>
+              <p className="text-gray-500 mb-4">Add your first medicine alert to get started</p>
+              <Button className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Medicine Alert
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
